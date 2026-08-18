@@ -53,6 +53,8 @@ export const positions = pgTable(
     /** Set on the draft -> open transition; drives the ageing report. */
     openedAt: tstz("opened_at"),
     closedAt: tstz("closed_at"),
+    /** Why the role ended. Optional when filled, expected when cancelled. */
+    closureNote: text("closure_note"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
