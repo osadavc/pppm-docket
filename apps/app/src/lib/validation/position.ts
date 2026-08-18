@@ -101,3 +101,21 @@ export const EMPTY_POSITION_DRAFT: PositionDraftInput = {
   requireFeedbackToAdvance: true,
   hiringManagerId: "",
 };
+
+export const approvePositionSchema = z.object({
+  positionId: z.uuid(),
+  // A manager may approve without comment; a rejection must explain itself.
+  note: z.string().trim().max(2000).optional(),
+});
+
+export const rejectPositionSchema = z.object({
+  positionId: z.uuid(),
+  note: z
+    .string()
+    .trim()
+    .min(10, "Tell HR what needs to change — at least 10 characters")
+    .max(2000, "Note is too long"),
+});
+
+export type ApprovePositionInput = z.infer<typeof approvePositionSchema>;
+export type RejectPositionInput = z.infer<typeof rejectPositionSchema>;

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Clock, EyeOff, Pencil } from "lucide-react";
+import { Clock, EyeOff, Pencil, Undo2 } from "lucide-react";
 import { PositionStatusBadge } from "@/components/positions/position-status-badge";
 import { StageList } from "@/components/positions/stage-list";
 import { SubmitForApprovalButton } from "@/components/positions/submit-for-approval-button";
+import { ReviewDecisionButtons } from "@/components/positions/review-decision-buttons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,10 @@ export default async function PositionPage({
 
   const canManage = can(user.role, "position:manage");
   const canSubmit = can(user.role, "position:submit") && position.status === "draft";
+  const canDecide =
+    can(user.role, "position:approve") && position.status === "pending_approval";
+  const wasRejected =
+    position.lastReviewDecision === "rejected" && position.status === "draft";
   const salary =
     position.salaryMin || position.salaryMax
       ? `${position.salaryMin?.toLocaleString() ?? "…"} – ${position.salaryMax?.toLocaleString() ?? "…"}`
@@ -75,8 +80,24 @@ export default async function PositionPage({
           {canSubmit ? (
             <SubmitForApprovalButton positionId={position.id} title={position.title} />
           ) : null}
+          {canDecide ? (
+            <ReviewDecisionButtons positionId={position.id} title={position.title} />
+          ) : null}
         </div>
       </div>
+
+      {wasRejected ? (
+        <Alert variant="destructive">
+          <Undo2 />
+          <AlertTitle>Returned by management</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <span className="block whitespace-pre-wrap">{position.reviewNote}</span>
+            <span className="block text-xs opacity-80">
+              {position.reviewedBy?.name ?? "Management"} · {formatDate(position.reviewedAt)}
+            </span>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {position.status === "pending_approval" ? (
         <Alert>
