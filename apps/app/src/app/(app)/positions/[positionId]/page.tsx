@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleSlash, Clock, EyeOff, Pencil, Undo2 } from "lucide-react";
+import { CircleSlash, Clock, EyeOff, Pencil, SlidersHorizontal, Undo2 } from "lucide-react";
 import { PositionStatusBadge } from "@/components/positions/position-status-badge";
 import { StageList } from "@/components/positions/stage-list";
 import { SubmitForApprovalButton } from "@/components/positions/submit-for-approval-button";
@@ -42,6 +42,7 @@ export default async function PositionPage({
     can(user.role, "position:approve") && position.status === "pending_approval";
   const wasRejected =
     position.lastReviewDecision === "rejected" && position.status === "draft";
+  const canConfigureStages = can(user.role, "position:stages:manage");
   const canEndSearch =
     can(user.role, "position:manage") &&
     (position.status === "open" || position.status === "on_hold");
@@ -191,11 +192,22 @@ export default async function PositionPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Interview stages</CardTitle>
-              <CardDescription>
-                Seeded when this position was created. These stages belong to
-                this position alone — changing them affects nothing else.
-              </CardDescription>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <CardTitle>Interview stages</CardTitle>
+                  <CardDescription>
+                    This sequence belongs to this position alone — changing it
+                    affects no other role.
+                  </CardDescription>
+                </div>
+                {canConfigureStages ? (
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/positions/${position.id}/stages`}>
+                      <SlidersHorizontal /> Configure
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
             </CardHeader>
             <CardContent>
               <StageList stages={position.stages} />
