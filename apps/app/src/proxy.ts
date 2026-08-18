@@ -13,7 +13,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * Deny by default: anything not listed as public is treated as internal, so a
  * new page cannot accidentally ship unprotected by being left off a list.
  */
-const PUBLIC_PATHS = ["/sign-in", "/sign-up"];
+const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/careers"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(
