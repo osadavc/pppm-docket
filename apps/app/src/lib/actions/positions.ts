@@ -19,9 +19,13 @@ import {
 import { positionHasApplications } from "@/lib/queries/positions";
 import type { PositionStatus } from "@/db/schema/enums";
 import {
+  approvePositionSchema,
   normalizePositionInput,
   positionDraftSchema,
+  rejectPositionSchema,
+  type ApprovePositionInput,
   type PositionDraftInput,
+  type RejectPositionInput,
 } from "@/lib/validation/position";
 import { fail, ok, type ActionResult } from "./result";
 
@@ -273,4 +277,131 @@ export async function submitPositionForApproval(
   revalidatePath(`/positions/${positionId}`);
   revalidatePath("/positions/approvals");
   return ok({ id: positionId, status: "pending_approval" });
+}
+
+/**
+ * Approve a submitted position: it opens and becomes visible on the careers
+ * board in the same transaction. `openedAt` is stamped here because it is the
+ * moment the role actually went live, which the ageing report depends on.
+ */
+export async function approvePosition(
+  input: ApprovePositionInput,
+): Promise<ActionResult<{ id: string }>> {
+  const actor = await requirePermission("position:approve");
+
+  const parsed = approvePositionSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(
+      "Check the highlighted fields.",
+      parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    );
+  }
+  const { positionId, note } = parsed.data;
+
+  const existing = await db.query.positions.findFirst({
+    where: eq(positions.id, positionId),
+  });
+  if (!existing) return fail("That position no longer exists.");
+  if (existing.status !== "pending_approval") {
+    return fail("Only a position awaiting approval can be approved.");
+  }
+
+  const now = new Date();
+  const result = await db.transaction(async (tx) => {
+    const moved = await transitionStatus(tx, positionId, existing.status, "open", {
+      openedAt: now,
+      lastReviewDecision: "approved",
+      reviewedById: actor.id,
+      reviewedAt: now,
+      reviewNote: note || null,
+    });
+    if (!moved.ok) return moved;
+
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "position.approved",
+      entityType: "position",
+      entityId: positionId,
+      positionId,
+      summary: `${actor.name} approved “${existing.title}” — it is now open and on the careers board`,
+      metadata: {
+        from: existing.status,
+        to: "open",
+        note: note || null,
+        submittedById: existing.submittedById,
+      },
+    });
+
+    return { ok: true as const };
+  });
+
+  if (!result.ok) return fail(result.error);
+
+  revalidatePath("/positions");
+  revalidatePath(`/positions/${positionId}`);
+  revalidatePath("/positions/approvals");
+  revalidatePath("/careers");
+  return ok({ id: positionId });
+}
+
+/**
+ * Reject a submitted position: it returns to draft carrying the manager's note,
+ * so HR sees exactly what to fix rather than having to ask.
+ */
+export async function rejectPosition(
+  input: RejectPositionInput,
+): Promise<ActionResult<{ id: string }>> {
+  const actor = await requirePermission("position:approve");
+
+  const parsed = rejectPositionSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(
+      "A note is required when rejecting.",
+      parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    );
+  }
+  const { positionId, note } = parsed.data;
+
+  const existing = await db.query.positions.findFirst({
+    where: eq(positions.id, positionId),
+  });
+  if (!existing) return fail("That position no longer exists.");
+  if (existing.status !== "pending_approval") {
+    return fail("Only a position awaiting approval can be rejected.");
+  }
+
+  const now = new Date();
+  const result = await db.transaction(async (tx) => {
+    const moved = await transitionStatus(tx, positionId, existing.status, "draft", {
+      lastReviewDecision: "rejected",
+      reviewedById: actor.id,
+      reviewedAt: now,
+      reviewNote: note,
+    });
+    if (!moved.ok) return moved;
+
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "position.rejected",
+      entityType: "position",
+      entityId: positionId,
+      positionId,
+      summary: `${actor.name} rejected “${existing.title}” and returned it to draft`,
+      metadata: {
+        from: existing.status,
+        to: "draft",
+        note,
+        submittedById: existing.submittedById,
+      },
+    });
+
+    return { ok: true as const };
+  });
+
+  if (!result.ok) return fail(result.error);
+
+  revalidatePath("/positions");
+  revalidatePath(`/positions/${positionId}`);
+  revalidatePath("/positions/approvals");
+  return ok({ id: positionId });
 }
