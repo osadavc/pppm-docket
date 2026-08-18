@@ -1,8 +1,9 @@
 import "server-only";
 
 import { and, asc, count, desc, eq, ne, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
-import { applications, positions, positionStages } from "@/db/schema";
+import { applications, positions, positionStages, user } from "@/db/schema";
 import type { PositionStatus } from "@/db/schema/enums";
 
 /**
@@ -86,6 +87,7 @@ export async function getPosition(positionId: string) {
       },
       hiringManager: { columns: { id: true, name: true, email: true } },
       createdBy: { columns: { id: true, name: true } },
+      submittedBy: { columns: { id: true, name: true } },
     },
   });
 }
@@ -104,5 +106,59 @@ export async function countNonDraftPositions() {
     .select({ n: count() })
     .from(positions)
     .where(and(ne(positions.status, "draft")));
+  return row?.n ?? 0;
+}
+
+export type PendingApproval = {
+  id: string;
+  title: string;
+  department: string;
+  location: string | null;
+  openings: number;
+  applicationDeadline: Date | null;
+  submittedAt: Date | null;
+  submittedByName: string | null;
+  hiringManagerId: string | null;
+  hiringManagerName: string | null;
+  stageCount: number;
+};
+
+/**
+ * The management approval queue: every position awaiting sign-off, oldest
+ * submission first so nothing sits forgotten at the bottom.
+ */
+export async function listPendingApprovals(): Promise<PendingApproval[]> {
+  const submitter = alias(user, "submitter");
+  const manager = alias(user, "manager");
+
+  return db
+    .select({
+      id: positions.id,
+      title: positions.title,
+      department: positions.department,
+      location: positions.location,
+      openings: positions.openings,
+      applicationDeadline: positions.applicationDeadline,
+      submittedAt: positions.submittedAt,
+      submittedByName: submitter.name,
+      hiringManagerId: positions.hiringManagerId,
+      hiringManagerName: manager.name,
+      stageCount: sql<number>`(
+        select count(*)::int from ${positionStages}
+        where ${positionStages.positionId} = ${positions.id}
+      )`,
+    })
+    .from(positions)
+    .leftJoin(submitter, eq(submitter.id, positions.submittedById))
+    .leftJoin(manager, eq(manager.id, positions.hiringManagerId))
+    .where(eq(positions.status, "pending_approval"))
+    .orderBy(asc(positions.submittedAt));
+}
+
+export async function countPendingApprovals() {
+  const [row] = await db
+    .select({ n: count() })
+    .from(positions)
+    .where(eq(positions.status, "pending_approval"));
   return row?.n ?? 0;
 }

@@ -10,9 +10,14 @@ import {
   stageTemplateSets,
 } from "@/db/schema";
 import { logActivity } from "@/lib/activity/log";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermission, requireRole } from "@/lib/auth/guards";
 import { DEFAULT_STAGES } from "@/lib/domain/default-stages";
+import {
+  canTransition,
+  transitionError,
+} from "@/lib/domain/position-status";
 import { positionHasApplications } from "@/lib/queries/positions";
+import type { PositionStatus } from "@/db/schema/enums";
 import {
   normalizePositionInput,
   positionDraftSchema,
@@ -187,3 +192,85 @@ export async function canEditStagesDestructively(positionId: string) {
   return !(await positionHasApplications(positionId));
 }
 
+
+/**
+ * The ONLY place `positions.status` is written.
+ *
+ * Every status change goes through the transition map, so no action can move a
+ * position somewhere the lifecycle forbids — in particular draft -> open.
+ * Returns the guard failure rather than throwing so callers can surface it.
+ */
+async function transitionStatus(
+  tx: Tx,
+  positionId: string,
+  from: PositionStatus,
+  to: PositionStatus,
+  extra: Partial<typeof positions.$inferInsert> = {},
+) {
+  if (!canTransition(from, to)) {
+    return { ok: false as const, error: transitionError(from, to) };
+  }
+  await tx
+    .update(positions)
+    .set({ status: to, ...extra })
+    .where(eq(positions.id, positionId));
+  return { ok: true as const };
+}
+
+/**
+ * Put a draft forward for management sign-off.
+ *
+ * Records who submitted it and when, so the approval queue can show the
+ * requester and the audit trail survives later status changes.
+ */
+export async function submitPositionForApproval(
+  positionId: string,
+): Promise<ActionResult<{ id: string; status: PositionStatus }>> {
+  const actor = await requirePermission("position:submit");
+
+  const existing = await db.query.positions.findFirst({
+    where: eq(positions.id, positionId),
+  });
+  if (!existing) return fail("That position no longer exists.");
+
+  if (existing.status === "pending_approval") {
+    return fail("This position is already awaiting approval.");
+  }
+
+  // A role should not be put forward with nothing in it for management to read.
+  const missing: string[] = [];
+  if (!existing.description.trim()) missing.push("a job description");
+  if (!existing.applicationDeadline) missing.push("an application deadline");
+  if (missing.length > 0) {
+    return fail(
+      `Add ${missing.join(" and ")} before submitting this position for approval.`,
+    );
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const moved = await transitionStatus(tx, positionId, existing.status, "pending_approval", {
+      submittedById: actor.id,
+      submittedAt: new Date(),
+    });
+    if (!moved.ok) return moved;
+
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "position.submitted_for_approval",
+      entityType: "position",
+      entityId: positionId,
+      positionId,
+      summary: `${actor.name} submitted “${existing.title}” for management approval`,
+      metadata: { from: existing.status, to: "pending_approval" },
+    });
+
+    return { ok: true as const };
+  });
+
+  if (!result.ok) return fail(result.error);
+
+  revalidatePath("/positions");
+  revalidatePath(`/positions/${positionId}`);
+  revalidatePath("/positions/approvals");
+  return ok({ id: positionId, status: "pending_approval" });
+}

@@ -1,4 +1,5 @@
 import {
+  BadgeCheck,
   BriefcaseBusiness,
   CalendarClock,
   ChartNoAxesColumn,
@@ -32,6 +33,12 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/positions",
         icon: BriefcaseBusiness,
         permission: "position:view",
+      },
+      {
+        title: "Approvals",
+        href: "/positions/approvals",
+        icon: BadgeCheck,
+        permission: "position:approve",
       },
       {
         title: "Candidates",
