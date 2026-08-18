@@ -1,6 +1,21 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  "globalEnv": [
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_STORAGE_BUCKET",
+    "BETTER_AUTH_SECRET",
+    "BETTER_AUTH_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "RESEND_API_KEY",
+    "EMAIL_FROM",
+    "NOTIFICATIONS_ENABLED",
+    "DEMO_EMAIL_REDIRECT",
+    "SEED_PASSWORD"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
