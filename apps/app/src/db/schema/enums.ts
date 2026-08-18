@@ -18,6 +18,9 @@ export const employmentType = pgEnum("employment_type", [
 
 export const positionStatus = pgEnum("position_status", [
   "draft",
+  // Awaiting management sign-off. A position cannot reach "open" without
+  // passing through here — see lib/domain/position-status.ts.
+  "pending_approval",
   "open",
   "on_hold",
   "closed",
