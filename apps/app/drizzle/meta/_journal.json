@@ -15,6 +15,13 @@
       "when": 1787042100335,
       "tag": "0001_special_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787042810540,
+      "tag": "0002_silly_starjammers",
+      "breakpoints": true
     }
   ]
 }

@@ -34,6 +34,11 @@ export const positionsRelations = relations(positions, ({ one, many }) => ({
     references: [user.id],
     relationName: "positionCreatedBy",
   }),
+  submittedBy: one(user, {
+    fields: [positions.submittedById],
+    references: [user.id],
+    relationName: "positionSubmittedBy",
+  }),
   stages: many(positionStages),
   applications: many(applications),
   attachments: many(attachments),

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EyeOff, Pencil } from "lucide-react";
+import { Clock, EyeOff, Pencil } from "lucide-react";
 import { PositionStatusBadge } from "@/components/positions/position-status-badge";
 import { StageList } from "@/components/positions/stage-list";
+import { SubmitForApprovalButton } from "@/components/positions/submit-for-approval-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ export default async function PositionPage({
   if (!position) notFound();
 
   const canManage = can(user.role, "position:manage");
+  const canSubmit = can(user.role, "position:submit") && position.status === "draft";
   const salary =
     position.salaryMin || position.salaryMax
       ? `${position.salaryMin?.toLocaleString() ?? "…"} – ${position.salaryMax?.toLocaleString() ?? "…"}`
@@ -62,14 +64,31 @@ export default async function PositionPage({
             {formatDate(position.createdAt)}
           </p>
         </div>
-        {canManage ? (
-          <Button asChild variant="outline">
-            <Link href={`/positions/${position.id}/edit`}>
-              <Pencil /> Edit
-            </Link>
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {canManage ? (
+            <Button asChild variant="outline">
+              <Link href={`/positions/${position.id}/edit`}>
+                <Pencil /> Edit
+              </Link>
+            </Button>
+          ) : null}
+          {canSubmit ? (
+            <SubmitForApprovalButton positionId={position.id} title={position.title} />
+          ) : null}
+        </div>
       </div>
+
+      {position.status === "pending_approval" ? (
+        <Alert>
+          <Clock />
+          <AlertTitle>Awaiting management approval</AlertTitle>
+          <AlertDescription>
+            Submitted by {position.submittedBy?.name ?? "—"} on{" "}
+            {formatDate(position.submittedAt)}. It cannot be advertised until
+            management signs it off.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {position.status === "draft" ? (
         <Alert>

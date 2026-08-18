@@ -11,6 +11,8 @@ export const PERMISSIONS = {
   "position:view": ["hr", "management"],
   "position:manage": ["hr"],
   "position:stages:manage": ["hr"],
+  "position:submit": ["hr"],
+  "position:approve": ["management"],
   "template:manage": ["hr"],
   "template:view": ["hr", "management"],
   "candidate:view": ["hr", "management"],
