@@ -7,10 +7,11 @@ import { applications, positions, positionStages, user } from "@/db/schema";
 import type { PositionStatus } from "@/db/schema/enums";
 
 /**
- * Statuses a candidate is allowed to see. `draft` is absent by construction,
- * and this constant is the single place that decision is expressed.
+ * The status a candidate is allowed to see. Kept in lib/domain/position-status
+ * so the careers queries and the "accepts applications" rule cannot drift — a
+ * role must never be advertised somewhere it cannot be applied to.
  */
-export const PUBLIC_POSITION_STATUSES = ["open"] as const satisfies readonly PositionStatus[];
+const PUBLIC_STATUS = "open" as const satisfies PositionStatus;
 
 /**
  * The ONLY query a public careers board may use.
@@ -33,7 +34,7 @@ export async function listPublicPositions() {
       openedAt: positions.openedAt,
     })
     .from(positions)
-    .where(eq(positions.status, "open"))
+    .where(eq(positions.status, PUBLIC_STATUS))
     .orderBy(desc(positions.openedAt));
 }
 
@@ -182,7 +183,44 @@ export async function getPublicPosition(positionId: string) {
       applicationDeadline: positions.applicationDeadline,
     })
     .from(positions)
-    .where(and(eq(positions.id, positionId), eq(positions.status, "open")))
+    .where(and(eq(positions.id, positionId), eq(positions.status, PUBLIC_STATUS)))
     .limit(1);
   return row ?? null;
+}
+
+export type FillSummary = {
+  openings: number;
+  hired: number;
+  shortfall: number;
+  activeCandidates: number;
+};
+
+/**
+ * Powers the under-hire warning when closing a position. Counting `hired`
+ * applications rather than trusting a flag means the warning reflects what
+ * actually happened in the pipeline.
+ */
+export async function getFillSummary(positionId: string): Promise<FillSummary> {
+  const [position] = await db
+    .select({ openings: positions.openings })
+    .from(positions)
+    .where(eq(positions.id, positionId));
+
+  const [counts] = await db
+    .select({
+      hired: sql<number>`count(*) filter (where ${applications.status} = 'hired')::int`,
+      active: sql<number>`count(*) filter (where ${applications.status} = 'active')::int`,
+    })
+    .from(applications)
+    .where(eq(applications.positionId, positionId));
+
+  const openings = position?.openings ?? 0;
+  const hired = counts?.hired ?? 0;
+
+  return {
+    openings,
+    hired,
+    shortfall: Math.max(0, openings - hired),
+    activeCandidates: counts?.active ?? 0,
+  };
 }

@@ -16,14 +16,16 @@ import {
   canTransition,
   transitionError,
 } from "@/lib/domain/position-status";
-import { positionHasApplications } from "@/lib/queries/positions";
+import { getFillSummary, positionHasApplications } from "@/lib/queries/positions";
 import type { PositionStatus } from "@/db/schema/enums";
 import {
   approvePositionSchema,
   normalizePositionInput,
   positionDraftSchema,
   rejectPositionSchema,
+  closePositionSchema,
   type ApprovePositionInput,
+  type ClosePositionInput,
   type PositionDraftInput,
   type RejectPositionInput,
 } from "@/lib/validation/position";
@@ -404,4 +406,81 @@ export async function rejectPosition(
   revalidatePath(`/positions/${positionId}`);
   revalidatePath("/positions/approvals");
   return ok({ id: positionId });
+}
+
+/**
+ * End a position's life: filled, closed or cancelled.
+ *
+ * The under-hire case is deliberately NOT blocked. A role is often filled with
+ * fewer people than were budgeted, and refusing to record reality would push
+ * HR into leaving positions open forever. The shortfall is returned so the UI
+ * can warn before confirming, and it is written to the audit trail either way.
+ */
+export async function closePosition(
+  input: ClosePositionInput,
+): Promise<ActionResult<{ id: string; status: PositionStatus; shortfall: number }>> {
+  const actor = await requirePermission("position:manage");
+
+  const parsed = closePositionSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(
+      "Check the highlighted fields.",
+      parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    );
+  }
+  const { positionId, status, note } = parsed.data;
+
+  const existing = await db.query.positions.findFirst({
+    where: eq(positions.id, positionId),
+  });
+  if (!existing) return fail("That position no longer exists.");
+
+  const summary = await getFillSummary(positionId);
+  const now = new Date();
+
+  const result = await db.transaction(async (tx) => {
+    // closedAt is the moment the search ended — time-to-fill is measured from
+    // openedAt to here, so it must be stamped on every terminal outcome.
+    const moved = await transitionStatus(tx, positionId, existing.status, status, {
+      closedAt: now,
+      closureNote: note || null,
+    });
+    if (!moved.ok) return moved;
+
+    const outcome =
+      status === "filled"
+        ? summary.shortfall > 0
+          ? `filled with ${summary.hired} of ${summary.openings} openings`
+          : `filled all ${summary.openings} opening${summary.openings === 1 ? "" : "s"}`
+        : status === "cancelled"
+          ? "cancelled before hiring"
+          : "closed";
+
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: `position.${status}`,
+      entityType: "position",
+      entityId: positionId,
+      positionId,
+      summary: `${actor.name} marked “${existing.title}” ${outcome}`,
+      metadata: {
+        from: existing.status,
+        to: status,
+        note: note || null,
+        openings: summary.openings,
+        hired: summary.hired,
+        shortfall: summary.shortfall,
+        activeCandidatesAtClose: summary.activeCandidates,
+      },
+    });
+
+    return { ok: true as const };
+  });
+
+  if (!result.ok) return fail(result.error);
+
+  revalidatePath("/positions");
+  revalidatePath(`/positions/${positionId}`);
+  revalidatePath("/careers");
+  return ok({ id: positionId, status, shortfall: summary.shortfall });
 }

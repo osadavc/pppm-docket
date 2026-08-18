@@ -9,6 +9,7 @@ const VARIANTS: Record<PositionStatus, "default" | "secondary" | "outline" | "de
   on_hold: "secondary",
   closed: "secondary",
   filled: "secondary",
+  cancelled: "destructive",
 };
 
 export function PositionStatusBadge({ status }: { status: PositionStatus }) {
