@@ -53,8 +53,14 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
-    // Keeps `session.user.role` available without a DB round-trip per request.
-    cookieCache: { enabled: true, maxAge: 5 * 60 },
+    /**
+     * Deliberately OFF. With the cookie cache on, better-auth returns the
+     * signed session payload straight from the cookie without reading the
+     * database, so a role change would not be visible for up to maxAge.
+     * Role changes must take effect on the user’s very next request, so we pay
+     * for one session lookup per request instead.
+     */
+    cookieCache: { enabled: false },
   },
 
   // Must be last — lets Server Actions set auth cookies.
