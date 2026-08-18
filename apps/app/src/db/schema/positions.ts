@@ -17,6 +17,8 @@ export const positions = pgTable(
     salaryMin: integer("salary_min"),
     salaryMax: integer("salary_max"),
     openings: integer("openings").default(1).notNull(),
+    /** Optional while drafting; a position can be prepared before a date is fixed. */
+    applicationDeadline: tstz("application_deadline"),
     status: positionStatus("status").default("draft").notNull(),
     /**
      * Position-level master switch for the feedback gate. Individual stages can
@@ -41,6 +43,7 @@ export const positions = pgTable(
     index("positions_status_idx").on(t.status),
     index("positions_department_idx").on(t.department),
     index("positions_hiring_manager_idx").on(t.hiringManagerId),
+    index("positions_deadline_idx").on(t.applicationDeadline),
   ],
 );
 

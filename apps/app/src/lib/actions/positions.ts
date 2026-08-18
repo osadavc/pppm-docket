@@ -1,0 +1,189 @@
+"use server";
+
+import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { db } from "@/db/client";
+import {
+  positions,
+  positionStages,
+  scorecardCriteria,
+  stageTemplateSets,
+} from "@/db/schema";
+import { logActivity } from "@/lib/activity/log";
+import { requireRole } from "@/lib/auth/guards";
+import { DEFAULT_STAGES } from "@/lib/domain/default-stages";
+import { positionHasApplications } from "@/lib/queries/positions";
+import {
+  normalizePositionInput,
+  positionDraftSchema,
+  type PositionDraftInput,
+} from "@/lib/validation/position";
+import { fail, ok, type ActionResult } from "./result";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Copy a pipeline onto a brand new position.
+ *
+ * Prefers the stage template set flagged `isDefault`; falls back to
+ * DEFAULT_STAGES so a position is never created without a usable pipeline.
+ * Either way the stages are COPIED — the position owns them from here on, so
+ * customising this pipeline never affects another position or a template.
+ */
+async function seedStages(tx: Tx, positionId: string) {
+  const template = await tx.query.stageTemplateSets.findFirst({
+    where: eq(stageTemplateSets.isDefault, true),
+    with: {
+      stages: {
+        orderBy: (s, { asc: ascending }) => [ascending(s.orderIndex)],
+        with: { criteria: true },
+      },
+    },
+  });
+
+  const source =
+    template && template.stages.length > 0
+      ? template.stages.map((s) => ({
+          name: s.name,
+          description: s.description,
+          kind: s.kind,
+          requiresScorecard: s.requiresScorecard,
+          minScorecards: s.minScorecards,
+          slaDays: s.slaDays,
+          criteria: s.criteria
+            .slice()
+            .sort((a, b) => a.orderIndex - b.orderIndex)
+            .map((c) => ({
+              label: c.label,
+              description: c.description,
+              weight: c.weight,
+            })),
+        }))
+      : DEFAULT_STAGES;
+
+  const inserted = await tx
+    .insert(positionStages)
+    .values(
+      source.map((stage, index) => ({
+        positionId,
+        name: stage.name,
+        description: stage.description,
+        orderIndex: index,
+        kind: stage.kind,
+        requiresScorecard: stage.requiresScorecard,
+        minScorecards: stage.minScorecards,
+        slaDays: stage.slaDays,
+      })),
+    )
+    .returning({ id: positionStages.id });
+
+  const criteriaRows = source.flatMap((stage, stageIndex) =>
+    stage.criteria.map((criterion, criterionIndex) => ({
+      positionStageId: inserted[stageIndex]!.id,
+      label: criterion.label,
+      description: criterion.description,
+      weight: criterion.weight,
+      orderIndex: criterionIndex,
+    })),
+  );
+
+  if (criteriaRows.length > 0) {
+    await tx.insert(scorecardCriteria).values(criteriaRows);
+  }
+
+  return { stageCount: inserted.length, source: template ? "template" : "default" };
+}
+
+export async function createDraftPosition(
+  input: PositionDraftInput,
+): Promise<ActionResult<{ id: string }>> {
+  const actor = await requireRole("hr");
+
+  const parsed = positionDraftSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(
+      "Check the highlighted fields.",
+      parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    );
+  }
+  const d = normalizePositionInput(parsed.data);
+
+  const created = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(positions)
+      .values({
+        ...d,
+        createdById: actor.id,
+        // Always a draft. Advertising it is a separate, deliberate step.
+        status: "draft",
+      })
+      .returning({ id: positions.id });
+
+    const position = row!;
+    const seeded = await seedStages(tx, position.id);
+
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "position.created",
+      entityType: "position",
+      entityId: position.id,
+      positionId: position.id,
+      summary: `${actor.name} created draft position “${d.title}” with ${seeded.stageCount} interview stages`,
+      metadata: { department: d.department, stageSource: seeded.source },
+    });
+
+    return position;
+  });
+
+  revalidatePath("/positions");
+  return ok({ id: created.id });
+}
+
+/** Drafts are freely editable; once live, edits are still allowed but audited. */
+export async function updatePosition(
+  positionId: string,
+  input: PositionDraftInput,
+): Promise<ActionResult<{ id: string }>> {
+  const actor = await requireRole("hr");
+
+  const parsed = positionDraftSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(
+      "Check the highlighted fields.",
+      parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    );
+  }
+  const d = normalizePositionInput(parsed.data);
+
+  const existing = await db.query.positions.findFirst({
+    where: eq(positions.id, positionId),
+  });
+  if (!existing) return fail("That position no longer exists.");
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(positions)
+      .set(d)
+      .where(eq(positions.id, positionId));
+
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "position.updated",
+      entityType: "position",
+      entityId: positionId,
+      positionId,
+      summary: `${actor.name} edited ${existing.status === "draft" ? "draft " : ""}position “${d.title}”`,
+      metadata: { status: existing.status },
+    });
+  });
+
+  revalidatePath("/positions");
+  revalidatePath(`/positions/${positionId}`);
+  return ok({ id: positionId });
+}
+
+/** Exposed for the stages story; kept here so the guard lives with the writes. */
+export async function canEditStagesDestructively(positionId: string) {
+  return !(await positionHasApplications(positionId));
+}
+
