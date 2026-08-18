@@ -20,3 +20,19 @@ export const createUserSchema = z.object({
 });
 
 export type CreateUserInput = z.input<typeof createUserSchema>;
+
+export const changeRoleSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(ROLES, { message: "Choose a role" }),
+});
+
+export const setPasswordSchema = z.object({
+  userId: z.string().min(1),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password is too long"),
+});
+
+export type ChangeRoleInput = z.input<typeof changeRoleSchema>;
+export type SetPasswordInput = z.input<typeof setPasswordSchema>;

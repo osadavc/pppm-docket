@@ -1,4 +1,5 @@
 import { RoleBadge } from "@/components/layout/role-badge";
+import { UserRowActions } from "@/components/admin/user-row-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -37,6 +38,9 @@ export function UserTable({
               <TableHead>Role</TableHead>
               <TableHead>Job title</TableHead>
               <TableHead>Department</TableHead>
+              <TableHead className="w-12 text-right">
+                <span className="sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -59,6 +63,9 @@ export function UserTable({
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {u.department || "—"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <UserRowActions user={u} isSelf={u.id === currentUserId} />
                 </TableCell>
               </TableRow>
             ))}
