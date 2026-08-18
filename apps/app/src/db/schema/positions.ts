@@ -33,6 +33,11 @@ export const positions = pgTable(
     createdById: text("created_by_id")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
+    /** Who put this forward for approval, and when. */
+    submittedById: text("submitted_by_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    submittedAt: tstz("submitted_at"),
     /** Set on the draft -> open transition; drives the ageing report. */
     openedAt: tstz("opened_at"),
     closedAt: tstz("closed_at"),
