@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, desc } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { user } from "@/db/schema";
 import { isUserRole, type UserRole } from "@/lib/auth/roles";
@@ -35,4 +35,17 @@ export async function listStaffAccounts(): Promise<StaffAccount[]> {
     ...r,
     role: isUserRole(r.role) ? r.role : "interviewer",
   }));
+}
+
+/** Candidates for the hiring-manager field: anyone who is not an interviewer. */
+export async function listHiringManagers() {
+  const rows = await db
+    .select({ id: user.id, name: user.name, role: user.role })
+    .from(user)
+    .where(eq(user.isActive, true))
+    .orderBy(asc(user.name));
+
+  return rows
+    .filter((r) => r.role === "management" || r.role === "hr")
+    .map(({ id, name }) => ({ id, name }));
 }
