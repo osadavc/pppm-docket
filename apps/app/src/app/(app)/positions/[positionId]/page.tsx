@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Clock, EyeOff, Pencil, Undo2 } from "lucide-react";
+import { CircleSlash, Clock, EyeOff, Pencil, Undo2 } from "lucide-react";
 import { PositionStatusBadge } from "@/components/positions/position-status-badge";
 import { StageList } from "@/components/positions/stage-list";
 import { SubmitForApprovalButton } from "@/components/positions/submit-for-approval-button";
 import { ReviewDecisionButtons } from "@/components/positions/review-decision-buttons";
+import { ClosePositionDialog } from "@/components/positions/close-position-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +19,11 @@ import {
 import { requirePermission } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { EMPLOYMENT_TYPE_LABELS, formatDate } from "@/lib/format";
-import { getPosition } from "@/lib/queries/positions";
+import {
+  isTerminalStatus,
+  POSITION_STATUS_LABELS,
+} from "@/lib/domain/position-status";
+import { getFillSummary, getPosition } from "@/lib/queries/positions";
 
 export const metadata: Metadata = { title: "Position · Docket" };
 
@@ -37,6 +42,11 @@ export default async function PositionPage({
     can(user.role, "position:approve") && position.status === "pending_approval";
   const wasRejected =
     position.lastReviewDecision === "rejected" && position.status === "draft";
+  const canEndSearch =
+    can(user.role, "position:manage") &&
+    (position.status === "open" || position.status === "on_hold");
+  const fillSummary = canEndSearch ? await getFillSummary(position.id) : null;
+  const isEnded = isTerminalStatus(position.status);
   const salary =
     position.salaryMin || position.salaryMax
       ? `${position.salaryMin?.toLocaleString() ?? "…"} – ${position.salaryMax?.toLocaleString() ?? "…"}`
@@ -48,6 +58,8 @@ export default async function PositionPage({
     ["Employment type", EMPLOYMENT_TYPE_LABELS[position.employmentType]],
     ["Openings", String(position.openings)],
     ["Application deadline", formatDate(position.applicationDeadline)],
+    ["Opened", formatDate(position.openedAt)],
+    ["Closed", formatDate(position.closedAt)],
     ["Salary range", salary],
     ["Hiring manager", position.hiringManager?.name ?? "Unassigned"],
     [
@@ -83,8 +95,35 @@ export default async function PositionPage({
           {canDecide ? (
             <ReviewDecisionButtons positionId={position.id} title={position.title} />
           ) : null}
+          {canEndSearch && fillSummary ? (
+            <ClosePositionDialog
+              positionId={position.id}
+              title={position.title}
+              summary={fillSummary}
+            />
+          ) : null}
         </div>
       </div>
+
+      {isEnded ? (
+        <Alert>
+          <CircleSlash />
+          <AlertTitle>
+            {POSITION_STATUS_LABELS[position.status]} on {formatDate(position.closedAt)}
+          </AlertTitle>
+          <AlertDescription className="space-y-1">
+            <span className="block">
+              This position is off the careers board and no longer accepts
+              applications.
+            </span>
+            {position.closureNote ? (
+              <span className="block whitespace-pre-wrap opacity-90">
+                {position.closureNote}
+              </span>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {wasRejected ? (
         <Alert variant="destructive">

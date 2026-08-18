@@ -25,6 +25,10 @@ export const positionStatus = pgEnum("position_status", [
   "on_hold",
   "closed",
   "filled",
+  // Abandoned before hiring anyone — distinct from "closed", which ended
+  // normally. Keeping them apart is what stops cancelled roles polluting
+  // time-to-fill.
+  "cancelled",
 ]);
 
 /** Outcome of the last management review of a position. */

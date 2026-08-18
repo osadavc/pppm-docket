@@ -119,3 +119,11 @@ export const rejectPositionSchema = z.object({
 
 export type ApprovePositionInput = z.infer<typeof approvePositionSchema>;
 export type RejectPositionInput = z.infer<typeof rejectPositionSchema>;
+
+export const closePositionSchema = z.object({
+  positionId: z.uuid(),
+  status: z.enum(["filled", "closed", "cancelled"]),
+  note: z.string().trim().max(2000).optional(),
+});
+
+export type ClosePositionInput = z.infer<typeof closePositionSchema>;
