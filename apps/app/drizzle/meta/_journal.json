@@ -8,6 +8,13 @@
       "when": 1787039071872,
       "tag": "0000_silly_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787042100335,
+      "tag": "0001_special_electro",
+      "breakpoints": true
     }
   ]
 }
