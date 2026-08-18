@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
+import { ReviewDecisionButtons } from "@/components/positions/review-decision-buttons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -52,8 +53,8 @@ export default async function ApprovalsPage() {
                   <TableHead>Hiring manager</TableHead>
                   <TableHead className="text-right">Openings</TableHead>
                   <TableHead>Deadline</TableHead>
-                  <TableHead className="w-24 text-right">
-                    <span className="sr-only">Review</span>
+                  <TableHead className="w-56 text-right">
+                    <span className="sr-only">Decision</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -79,10 +80,17 @@ export default async function ApprovalsPage() {
                     <TableCell className="text-muted-foreground">
                       {formatDate(p.applicationDeadline)}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/positions/${p.id}`}>Review</Link>
-                      </Button>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button asChild size="sm" variant="ghost">
+                          <Link href={`/positions/${p.id}`}>Open</Link>
+                        </Button>
+                        <ReviewDecisionButtons
+                          positionId={p.id}
+                          title={p.title}
+                          size="sm"
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

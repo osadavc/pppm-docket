@@ -1,6 +1,6 @@
 import { index, integer, pgTable, text, uuid, boolean } from "drizzle-orm/pg-core";
 import { user } from "./auth";
-import { employmentType, positionStatus } from "./enums";
+import { employmentType, positionStatus, reviewDecision } from "./enums";
 import { createdAt, tstz, updatedAt } from "./_shared";
 
 export const positions = pgTable(
@@ -38,6 +38,18 @@ export const positions = pgTable(
       onDelete: "set null",
     }),
     submittedAt: tstz("submitted_at"),
+    /**
+     * The last management decision. Kept even after a rejection sends the
+     * position back to draft — otherwise a rejected role is indistinguishable
+     * from one that was never submitted, and HR never sees why it came back.
+     */
+    lastReviewDecision: reviewDecision("last_review_decision"),
+    reviewedById: text("reviewed_by_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: tstz("reviewed_at"),
+    /** The manager’s note. Required when rejecting, optional when approving. */
+    reviewNote: text("review_note"),
     /** Set on the draft -> open transition; drives the ageing report. */
     openedAt: tstz("opened_at"),
     closedAt: tstz("closed_at"),

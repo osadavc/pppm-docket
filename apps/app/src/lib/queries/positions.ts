@@ -88,6 +88,7 @@ export async function getPosition(positionId: string) {
       hiringManager: { columns: { id: true, name: true, email: true } },
       createdBy: { columns: { id: true, name: true } },
       submittedBy: { columns: { id: true, name: true } },
+      reviewedBy: { columns: { id: true, name: true } },
     },
   });
 }
@@ -161,4 +162,27 @@ export async function countPendingApprovals() {
     .from(positions)
     .where(eq(positions.status, "pending_approval"));
   return row?.n ?? 0;
+}
+
+/**
+ * Single-role view for the public careers board. Scoped to `open` for the same
+ * reason as the listing: an unapproved role must not be reachable by guessing
+ * its id.
+ */
+export async function getPublicPosition(positionId: string) {
+  const [row] = await db
+    .select({
+      id: positions.id,
+      title: positions.title,
+      department: positions.department,
+      location: positions.location,
+      employmentType: positions.employmentType,
+      description: positions.description,
+      requirements: positions.requirements,
+      applicationDeadline: positions.applicationDeadline,
+    })
+    .from(positions)
+    .where(and(eq(positions.id, positionId), eq(positions.status, "open")))
+    .limit(1);
+  return row ?? null;
 }

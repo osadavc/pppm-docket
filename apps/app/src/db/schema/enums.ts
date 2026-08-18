@@ -27,6 +27,9 @@ export const positionStatus = pgEnum("position_status", [
   "filled",
 ]);
 
+/** Outcome of the last management review of a position. */
+export const reviewDecision = pgEnum("review_decision", ["approved", "rejected"]);
+
 export const stageKind = pgEnum("stage_kind", [
   "screening",
   "interview",
@@ -115,6 +118,7 @@ export const notificationStatus = pgEnum("notification_status", [
 
 export type UserRole = (typeof userRole.enumValues)[number];
 export type PositionStatus = (typeof positionStatus.enumValues)[number];
+export type ReviewDecision = (typeof reviewDecision.enumValues)[number];
 export type ApplicationStatus = (typeof applicationStatus.enumValues)[number];
 export type StageProgressStatus = (typeof stageProgressStatus.enumValues)[number];
 export type Recommendation = (typeof recommendation.enumValues)[number];
