@@ -6,7 +6,11 @@ import { user } from "./auth";
 import { candidates } from "./candidates";
 import { interviewParticipants, interviews } from "./interviews";
 import { notifications } from "./notifications";
-import { positionStages, scorecardCriteria } from "./pipeline";
+import {
+  positionStageInterviewers,
+  positionStages,
+  scorecardCriteria,
+} from "./pipeline";
 import { positions } from "./positions";
 import { scorecardRatings, scorecards } from "./scorecards";
 import {
@@ -89,7 +93,22 @@ export const positionStagesRelations = relations(positionStages, ({ one, many })
   }),
   criteria: many(scorecardCriteria),
   applicationStages: many(applicationStages),
+  interviewers: many(positionStageInterviewers),
 }));
+
+export const positionStageInterviewersRelations = relations(
+  positionStageInterviewers,
+  ({ one }) => ({
+    stage: one(positionStages, {
+      fields: [positionStageInterviewers.positionStageId],
+      references: [positionStages.id],
+    }),
+    user: one(user, {
+      fields: [positionStageInterviewers.userId],
+      references: [user.id],
+    }),
+  }),
+);
 
 export const scorecardCriteriaRelations = relations(
   scorecardCriteria,
