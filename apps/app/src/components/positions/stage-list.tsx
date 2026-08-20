@@ -1,9 +1,16 @@
 import { Badge } from "@/components/ui/badge";
 import type { PositionStage, ScorecardCriterion } from "@/db/schema";
+import type { StagePanelMember } from "@/lib/queries/stage-interviewers";
 
 type StageWithCriteria = PositionStage & { criteria: ScorecardCriterion[] };
 
-export function StageList({ stages }: { stages: StageWithCriteria[] }) {
+export function StageList({
+  stages,
+  panels = {},
+}: {
+  stages: StageWithCriteria[];
+  panels?: Record<string, StagePanelMember[]>;
+}) {
   if (stages.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -40,6 +47,11 @@ export function StageList({ stages }: { stages: StageWithCriteria[] }) {
             {stage.description ? (
               <p className="text-muted-foreground text-sm">{stage.description}</p>
             ) : null}
+            <p className="text-muted-foreground text-xs">
+              {(panels[stage.id] ?? []).length > 0
+                ? `Interviewers: ${(panels[stage.id] ?? []).map((p) => p.name).join(", ")}`
+                : "No interviewers assigned"}
+            </p>
             {stage.criteria.length > 0 ? (
               <p className="text-muted-foreground text-xs">
                 Scored on:{" "}

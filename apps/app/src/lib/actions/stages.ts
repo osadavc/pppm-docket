@@ -1,9 +1,14 @@
 "use server";
 
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
-import { positionStages, scorecardCriteria } from "@/db/schema";
+import {
+  positionStageInterviewers,
+  positionStages,
+  scorecardCriteria,
+  user,
+} from "@/db/schema";
 import { logActivity } from "@/lib/activity/log";
 import { requirePermission } from "@/lib/auth/guards";
 import { positionHasApplications } from "@/lib/queries/positions";
@@ -11,8 +16,10 @@ import {
   createStageSchema,
   deleteStageSchema,
   reorderStagesSchema,
+  setStageInterviewersSchema,
   updateStageSchema,
   type CreateStageInput,
+  type SetStageInterviewersInput,
   type UpdateStageInput,
 } from "@/lib/validation/stage";
 import { fail, ok, type ActionResult } from "./result";
@@ -246,3 +253,91 @@ export async function deleteStage(stageId: string): Promise<ActionResult<void>> 
   return ok(undefined);
 }
 
+
+/**
+ * Replace a stage's standing interview panel.
+ *
+ * Sent as the whole desired list rather than add/remove deltas so the result
+ * cannot drift from what the manager saw on screen. Clearing the panel entirely
+ * is deliberately allowed — a stage with nobody assigned simply stops gating
+ * advancement rather than blocking candidates behind an empty panel.
+ *
+ * Unlike adding or reordering stages, this stays editable after candidates
+ * arrive: panels change when people join, leave or go on holiday, and the
+ * pipeline shape is untouched.
+ */
+export async function setStageInterviewers(
+  input: SetStageInterviewersInput,
+): Promise<ActionResult<{ assigned: number }>> {
+  const actor = await requirePermission("position:stages:manage");
+
+  const parsed = setStageInterviewersSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(
+      "Check the highlighted fields.",
+      parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    );
+  }
+  const { stageId, userIds } = parsed.data;
+  const desired = [...new Set(userIds)];
+
+  const stage = await db.query.positionStages.findFirst({
+    where: eq(positionStages.id, stageId),
+  });
+  if (!stage) return fail("That stage no longer exists.");
+
+  if (desired.length > 0) {
+    const found = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(and(inArray(user.id, desired), eq(user.isActive, true)));
+    if (found.length !== desired.length) {
+      return fail("One of those people is no longer an active user.");
+    }
+  }
+
+  const current = await db
+    .select({ userId: positionStageInterviewers.userId })
+    .from(positionStageInterviewers)
+    .where(eq(positionStageInterviewers.positionStageId, stageId));
+  const currentIds = new Set(current.map((c) => c.userId));
+
+  const added = desired.filter((id) => !currentIds.has(id));
+  const removed = [...currentIds].filter((id) => !desired.includes(id));
+
+  if (added.length === 0 && removed.length === 0) {
+    return ok({ assigned: desired.length });
+  }
+
+  await db.transaction(async (tx) => {
+    if (removed.length > 0) {
+      await tx
+        .delete(positionStageInterviewers)
+        .where(
+          and(
+            eq(positionStageInterviewers.positionStageId, stageId),
+            inArray(positionStageInterviewers.userId, removed),
+          ),
+        );
+    }
+    if (added.length > 0) {
+      await tx
+        .insert(positionStageInterviewers)
+        .values(added.map((userId) => ({ positionStageId: stageId, userId })));
+    }
+
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "position.stage_panel_changed",
+      entityType: "position",
+      entityId: stage.positionId,
+      positionId: stage.positionId,
+      summary: `${actor.name} set ${desired.length} interviewer${desired.length === 1 ? "" : "s"} on the stage “${stage.name}”`,
+      metadata: { stageId, added, removed, panelSize: desired.length },
+    });
+  });
+
+  revalidatePath(`/positions/${stage.positionId}`);
+  revalidatePath(`/positions/${stage.positionId}/stages`);
+  return ok({ assigned: desired.length });
+}

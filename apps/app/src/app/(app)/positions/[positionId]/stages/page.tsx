@@ -5,6 +5,10 @@ import { ArrowLeft } from "lucide-react";
 import { StageEditor, type EditableStage } from "@/components/positions/stage-editor";
 import { requirePermission } from "@/lib/auth/guards";
 import { getPosition, positionHasApplications } from "@/lib/queries/positions";
+import {
+  getStagePanels,
+  listAssignableInterviewers,
+} from "@/lib/queries/stage-interviewers";
 
 export const metadata: Metadata = { title: "Interview stages · Docket" };
 
@@ -19,7 +23,12 @@ export default async function PositionStagesPage({
   const position = await getPosition(positionId);
   if (!position) notFound();
 
-  const locked = await positionHasApplications(positionId);
+  const [locked, panelMap, assignableInterviewers] = await Promise.all([
+    positionHasApplications(positionId),
+    getStagePanels(positionId),
+    listAssignableInterviewers(),
+  ]);
+  const panels = Object.fromEntries(panelMap);
 
   const stages: EditableStage[] = position.stages.map((s) => ({
     id: s.id,
@@ -48,7 +57,13 @@ export default async function PositionStagesPage({
       </div>
 
       <div className="max-w-3xl">
-        <StageEditor positionId={position.id} stages={stages} locked={locked} />
+        <StageEditor
+          positionId={position.id}
+          stages={stages}
+          locked={locked}
+          panels={panels}
+          assignableInterviewers={assignableInterviewers}
+        />
       </div>
     </>
   );

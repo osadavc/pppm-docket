@@ -49,3 +49,11 @@ export const EMPTY_STAGE: StageFormInput = {
   minScorecards: 1,
   slaDays: "",
 };
+
+export const setStageInterviewersSchema = z.object({
+  stageId: z.uuid(),
+  /** The full desired panel. An empty list clears it, which is allowed. */
+  userIds: z.array(z.string().min(1)).max(20, "That is a large panel"),
+});
+
+export type SetStageInterviewersInput = z.infer<typeof setStageInterviewersSchema>;

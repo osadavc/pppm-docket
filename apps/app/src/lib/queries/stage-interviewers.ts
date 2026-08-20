@@ -1,0 +1,148 @@
+import "server-only";
+
+import { and, asc, eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import {
+  applications,
+  applicationStages,
+  positionStageInterviewers,
+  positionStages,
+  user,
+} from "@/db/schema";
+import { isUserRole, type UserRole } from "@/lib/auth/roles";
+
+export type StagePanelMember = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  jobTitle: string | null;
+};
+
+/** The standing panel for every stage of a position, keyed by stage id. */
+export async function getStagePanels(positionId: string) {
+  const rows = await db
+    .select({
+      id: positionStageInterviewers.id,
+      stageId: positionStageInterviewers.positionStageId,
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      jobTitle: user.jobTitle,
+    })
+    .from(positionStageInterviewers)
+    .innerJoin(user, eq(user.id, positionStageInterviewers.userId))
+    .innerJoin(
+      positionStages,
+      eq(positionStages.id, positionStageInterviewers.positionStageId),
+    )
+    .where(eq(positionStages.positionId, positionId))
+    .orderBy(asc(user.name));
+
+  const byStage = new Map<string, StagePanelMember[]>();
+  for (const r of rows) {
+    const list = byStage.get(r.stageId) ?? [];
+    list.push({
+      id: r.id,
+      userId: r.userId,
+      name: r.name,
+      email: r.email,
+      role: isUserRole(r.role) ? r.role : "interviewer",
+      jobTitle: r.jobTitle,
+    });
+    byStage.set(r.stageId, list);
+  }
+  return byStage;
+}
+
+/** Everyone who could sit on a panel. */
+export async function listAssignableInterviewers(): Promise<StagePanelMember[]> {
+  const rows = await db
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      jobTitle: user.jobTitle,
+    })
+    .from(user)
+    .where(eq(user.isActive, true))
+    .orderBy(asc(user.name));
+
+  return rows.map((r) => ({
+    id: r.id,
+    userId: r.id,
+    name: r.name,
+    email: r.email,
+    role: isUserRole(r.role) ? r.role : "interviewer",
+    jobTitle: r.jobTitle,
+  }));
+}
+
+/**
+ * The positions an interviewer has been made responsible for.
+ *
+ * Written as an inner join through the assignment table rather than as a filter
+ * applied afterwards, so an unassigned row physically cannot be returned even
+ * if a caller forgets a guard.
+ */
+export async function listPositionIdsVisibleToInterviewer(userId: string) {
+  const rows = await db
+    .selectDistinct({ positionId: positionStages.positionId })
+    .from(positionStageInterviewers)
+    .innerJoin(
+      positionStages,
+      eq(positionStages.id, positionStageInterviewers.positionStageId),
+    )
+    .where(eq(positionStageInterviewers.userId, userId));
+
+  return rows.map((r) => r.positionId);
+}
+
+/**
+ * Whether an interviewer may see a given application: true only if they sit on
+ * the panel for at least one stage of that application's position.
+ */
+export async function interviewerCanViewApplication(
+  userId: string,
+  applicationId: string,
+) {
+  const [row] = await db
+    .select({ id: applications.id })
+    .from(applications)
+    .innerJoin(positionStages, eq(positionStages.positionId, applications.positionId))
+    .innerJoin(
+      positionStageInterviewers,
+      and(
+        eq(positionStageInterviewers.positionStageId, positionStages.id),
+        eq(positionStageInterviewers.userId, userId),
+      ),
+    )
+    .where(eq(applications.id, applicationId))
+    .limit(1);
+
+  return Boolean(row);
+}
+
+/** Stage ids on a given application that this interviewer is responsible for. */
+export async function assignedStageIdsForInterviewer(
+  userId: string,
+  applicationId: string,
+) {
+  const rows = await db
+    .select({ applicationStageId: applicationStages.id })
+    .from(applicationStages)
+    .innerJoin(
+      positionStageInterviewers,
+      and(
+        eq(positionStageInterviewers.positionStageId, applicationStages.positionStageId),
+        eq(positionStageInterviewers.userId, userId),
+      ),
+    )
+    .where(eq(applicationStages.applicationId, applicationId));
+
+  return rows.map((r) => r.applicationStageId);
+}
+
