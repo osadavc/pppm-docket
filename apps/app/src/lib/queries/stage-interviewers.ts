@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   applications,
   applicationStages,
   positionStageInterviewers,
   positionStages,
+  scorecards,
   user,
 } from "@/db/schema";
 import { isUserRole, type UserRole } from "@/lib/auth/roles";
@@ -146,3 +147,60 @@ export async function assignedStageIdsForInterviewer(
   return rows.map((r) => r.applicationStageId);
 }
 
+
+export type StageOccupancy = {
+  stageId: string;
+  /** Active candidates sitting on this stage right now. */
+  activeCandidates: number;
+  /** Scorecards ever submitted at this stage — what archiving must preserve. */
+  submittedScorecards: number;
+};
+
+/**
+ * How many people a stage is currently holding, and how much feedback is
+ * attached to it. Drives the "choose a destination" requirement when archiving.
+ */
+export async function getStageOccupancy(positionId: string) {
+  const stages = await db
+    .select({ id: positionStages.id })
+    .from(positionStages)
+    .where(eq(positionStages.positionId, positionId));
+
+  // Grouped joins rather than correlated subqueries: interpolating the outer
+  // table's own columns into a subquery emits an unqualified "id", which
+  // Postgres rejects as ambiguous.
+  const occupied = await db
+    .select({ stageId: applications.currentStageId, n: count() })
+    .from(applications)
+    .where(
+      and(eq(applications.positionId, positionId), eq(applications.status, "active")),
+    )
+    .groupBy(applications.currentStageId);
+
+  const feedback = await db
+    .select({ stageId: applicationStages.positionStageId, n: count() })
+    .from(scorecards)
+    .innerJoin(applicationStages, eq(applicationStages.id, scorecards.applicationStageId))
+    .innerJoin(positionStages, eq(positionStages.id, applicationStages.positionStageId))
+    .where(
+      and(
+        eq(positionStages.positionId, positionId),
+        eq(scorecards.status, "submitted"),
+      ),
+    )
+    .groupBy(applicationStages.positionStageId);
+
+  const occupiedBy = new Map(occupied.map((r) => [r.stageId, r.n]));
+  const feedbackBy = new Map(feedback.map((r) => [r.stageId, r.n]));
+
+  return new Map<string, StageOccupancy>(
+    stages.map((s) => [
+      s.id,
+      {
+        stageId: s.id,
+        activeCandidates: occupiedBy.get(s.id) ?? 0,
+        submittedScorecards: feedbackBy.get(s.id) ?? 0,
+      },
+    ]),
+  );
+}

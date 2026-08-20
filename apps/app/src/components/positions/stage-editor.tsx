@@ -1,12 +1,12 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Lock, Pencil, Plus, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Pencil, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { StageFormFields } from "@/components/positions/stage-form-fields";
 import { StagePanelDialog } from "@/components/positions/stage-panel-dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -29,28 +29,38 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  archiveStage,
   createStage,
-  deleteStage,
   reorderStages,
+  unarchiveStage,
   updateStage,
 } from "@/lib/actions/stages";
 import { EMPTY_STAGE, type StageFormInput } from "@/lib/validation/stage";
-import type { StagePanelMember } from "@/lib/queries/stage-interviewers";
+import type { StageOccupancy, StagePanelMember } from "@/lib/queries/stage-interviewers";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-export type EditableStage = StageFormInput & { id: string };
+export type EditableStage = StageFormInput & { id: string; isArchived: boolean };
 
 export function StageEditor({
   positionId,
   stages,
-  locked,
+  archivedStages,
   panels,
+  occupancy,
   assignableInterviewers,
 }: {
   positionId: string;
   stages: EditableStage[];
-  locked: boolean;
+  archivedStages: EditableStage[];
   /** Standing panel per stage id. */
   panels: Record<string, StagePanelMember[]>;
+  occupancy: Record<string, StageOccupancy>;
   assignableInterviewers: StagePanelMember[];
 }) {
   const router = useRouter();
@@ -58,7 +68,8 @@ export function StageEditor({
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<StageFormInput>(EMPTY_STAGE);
   const [editing, setEditing] = useState<EditableStage | null>(null);
-  const [removing, setRemoving] = useState<EditableStage | null>(null);
+  const [archiving, setArchiving] = useState<EditableStage | null>(null);
+  const [destination, setDestination] = useState<string>("");
   const [error, setError] = useState<string>();
 
   async function run(fn: () => Promise<{ ok: boolean; error?: string }>, done: string) {
@@ -89,18 +100,6 @@ export function StageEditor({
 
   return (
     <div className="space-y-4">
-      {locked ? (
-        <Alert>
-          <Lock />
-          <AlertTitle>Pipeline locked</AlertTitle>
-          <AlertDescription>
-            Candidates have already applied, so stages cannot be added, removed
-            or reordered — that would move people mid-process. Renaming and
-            per-stage settings are still editable.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -161,7 +160,7 @@ export function StageEditor({
                   variant="ghost"
                   size="icon"
                   aria-label={`Move ${stage.name} earlier`}
-                  disabled={busy || locked || index === 0}
+                  disabled={busy || index === 0}
                   onClick={() => move(index, -1)}
                 >
                   <ArrowUp />
@@ -170,7 +169,7 @@ export function StageEditor({
                   variant="ghost"
                   size="icon"
                   aria-label={`Move ${stage.name} later`}
-                  disabled={busy || locked || index === stages.length - 1}
+                  disabled={busy || index === stages.length - 1}
                   onClick={() => move(index, 1)}
                 >
                   <ArrowDown />
@@ -187,11 +186,14 @@ export function StageEditor({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Remove ${stage.name}`}
-                  disabled={busy || locked || stages.length <= 1}
-                  onClick={() => setRemoving(stage)}
+                  aria-label={`Archive ${stage.name}`}
+                  disabled={busy || stages.length <= 1}
+                  onClick={() => {
+                    setDestination("");
+                    setArchiving(stage);
+                  }}
                 >
-                  <Trash2 />
+                  <Archive />
                 </Button>
               </div>
             </Card>
@@ -199,7 +201,7 @@ export function StageEditor({
         ))}
       </ol>
 
-      <Button variant="outline" disabled={busy || locked} onClick={() => setAdding(true)}>
+      <Button variant="outline" disabled={busy} onClick={() => setAdding(true)}>
         <Plus /> Add stage
       </Button>
 
@@ -269,29 +271,106 @@ export function StageEditor({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={removing !== null} onOpenChange={(o) => !o && setRemoving(null)}>
+      <AlertDialog
+        open={archiving !== null}
+        onOpenChange={(o) => { if (!o) { setArchiving(null); setDestination(""); } }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove “{removing?.name}”?</AlertDialogTitle>
+            <AlertDialogTitle>Archive “{archiving?.name}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              The stage and its scoring criteria are deleted from this position.
-              No other position is affected.
+              It leaves the active pipeline. Feedback already given at this stage
+              and the history of candidates who passed through it are kept.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {archiving && (occupancy[archiving.id]?.activeCandidates ?? 0) > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm">
+                {occupancy[archiving.id]!.activeCandidates} active candidate
+                {occupancy[archiving.id]!.activeCandidates === 1 ? " is" : "s are"} on
+                this stage. Choose where to move them.
+              </p>
+              <Select value={destination} onValueChange={setDestination}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Move candidates to…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stages
+                    .filter((s) => s.id !== archiving.id)
+                    .map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          {archiving && (occupancy[archiving.id]?.submittedScorecards ?? 0) > 0 ? (
+            <p className="text-muted-foreground text-sm">
+              {occupancy[archiving.id]!.submittedScorecards} submitted scorecard
+              {occupancy[archiving.id]!.submittedScorecards === 1 ? "" : "s"} stay
+              attached to this stage.
+            </p>
+          ) : null}
+
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              disabled={
+                busy ||
+                ((occupancy[archiving?.id ?? ""]?.activeCandidates ?? 0) > 0 &&
+                  destination === "")
+              }
               onClick={async () => {
-                if (!removing) return;
-                await run(() => deleteStage(removing.id), "Stage removed");
-                setRemoving(null);
+                if (!archiving) return;
+                await run(
+                  () =>
+                    archiveStage({
+                      stageId: archiving.id,
+                      destinationStageId: destination || undefined,
+                    }),
+                  "Stage archived",
+                );
+                setArchiving(null);
+                setDestination("");
               }}
             >
-              Remove stage
+              Archive stage
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {archivedStages.length > 0 ? (
+        <div className="space-y-2 pt-4">
+          <h2 className="text-muted-foreground text-sm font-medium">
+            Archived ({archivedStages.length})
+          </h2>
+          {archivedStages.map((stage) => (
+            <Card
+              key={stage.id}
+              className="flex flex-row items-center gap-4 p-3 opacity-70"
+            >
+              <span className="min-w-0 flex-1 truncate text-sm">{stage.name}</span>
+              <span className="text-muted-foreground text-xs">
+                {occupancy[stage.id]?.submittedScorecards ?? 0} scorecard
+                {(occupancy[stage.id]?.submittedScorecards ?? 0) === 1 ? "" : "s"} kept
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => run(() => unarchiveStage(stage.id), "Stage restored")}
+              >
+                <ArchiveRestore /> Restore
+              </Button>
+            </Card>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
