@@ -24,6 +24,7 @@ import {
   POSITION_STATUS_LABELS,
 } from "@/lib/domain/position-status";
 import { getFillSummary, getPosition } from "@/lib/queries/positions";
+import { getStagePanels } from "@/lib/queries/stage-interviewers";
 
 export const metadata: Metadata = { title: "Position · Docket" };
 
@@ -43,6 +44,7 @@ export default async function PositionPage({
   const wasRejected =
     position.lastReviewDecision === "rejected" && position.status === "draft";
   const canConfigureStages = can(user.role, "position:stages:manage");
+  const panels = Object.fromEntries(await getStagePanels(position.id));
   const canEndSearch =
     can(user.role, "position:manage") &&
     (position.status === "open" || position.status === "on_hold");
@@ -210,7 +212,7 @@ export default async function PositionPage({
               </div>
             </CardHeader>
             <CardContent>
-              <StageList stages={position.stages} />
+              <StageList stages={position.stages} panels={panels} />
             </CardContent>
           </Card>
         </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { StageFormFields } from "@/components/positions/stage-form-fields";
+import { StagePanelDialog } from "@/components/positions/stage-panel-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -34,6 +35,7 @@ import {
   updateStage,
 } from "@/lib/actions/stages";
 import { EMPTY_STAGE, type StageFormInput } from "@/lib/validation/stage";
+import type { StagePanelMember } from "@/lib/queries/stage-interviewers";
 
 export type EditableStage = StageFormInput & { id: string };
 
@@ -41,10 +43,15 @@ export function StageEditor({
   positionId,
   stages,
   locked,
+  panels,
+  assignableInterviewers,
 }: {
   positionId: string;
   stages: EditableStage[];
   locked: boolean;
+  /** Standing panel per stage id. */
+  panels: Record<string, StagePanelMember[]>;
+  assignableInterviewers: StagePanelMember[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -128,6 +135,25 @@ export function StageEditor({
                 {stage.description ? (
                   <p className="text-muted-foreground text-sm">{stage.description}</p>
                 ) : null}
+
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1">
+                  {(panels[stage.id] ?? []).length > 0 ? (
+                    <span className="text-muted-foreground text-sm">
+                      {(panels[stage.id] ?? []).map((p) => p.name).join(", ")}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-sm italic">
+                      No interviewers assigned — this stage will not hold
+                      candidates up
+                    </span>
+                  )}
+                  <StagePanelDialog
+                    stageId={stage.id}
+                    stageName={stage.name}
+                    assigned={panels[stage.id] ?? []}
+                    candidates={assignableInterviewers}
+                  />
+                </div>
               </div>
 
               <div className="flex shrink-0 items-center gap-1">

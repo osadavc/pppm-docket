@@ -1,4 +1,13 @@
-import { boolean, index, integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
+import { user } from "./auth";
 import { stageKind } from "./enums";
 import { positions } from "./positions";
 import { createdAt, updatedAt } from "./_shared";
@@ -59,3 +68,34 @@ export const scorecardCriteria = pgTable(
 
 export type PositionStage = typeof positionStages.$inferSelect;
 export type ScorecardCriterion = typeof scorecardCriteria.$inferSelect;
+
+/**
+ * The standing interview panel for a stage.
+ *
+ * Distinct from `interview_participants`, which records who actually attended a
+ * particular scheduled interview. This is the *responsibility*: who is expected
+ * to assess every candidate who reaches this stage of this position. It is what
+ * makes accountability explicit before anyone is scheduled, and it drives both
+ * an interviewer's visibility of candidates and the feedback gate.
+ */
+export const positionStageInterviewers = pgTable(
+  "position_stage_interviewers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    positionStageId: uuid("position_stage_id")
+      .notNull()
+      .references(() => positionStages.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("position_stage_interviewers_unique").on(t.positionStageId, t.userId),
+    // This index is the visibility query: "which candidates may this person see?"
+    index("position_stage_interviewers_user_idx").on(t.userId),
+  ],
+);
+
+export type PositionStageInterviewer = typeof positionStageInterviewers.$inferSelect;
