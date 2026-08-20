@@ -35,7 +35,6 @@ export const reorderStagesSchema = z.object({
   orderedStageIds: z.array(z.uuid()).min(1, "At least one stage is required"),
 });
 
-export const deleteStageSchema = z.object({ stageId: z.uuid() });
 
 export type CreateStageInput = z.infer<typeof createStageSchema>;
 export type UpdateStageInput = z.infer<typeof updateStageSchema>;
@@ -57,3 +56,11 @@ export const setStageInterviewersSchema = z.object({
 });
 
 export type SetStageInterviewersInput = z.infer<typeof setStageInterviewersSchema>;
+
+export const archiveStageSchema = z.object({
+  stageId: z.uuid(),
+  /** Required only when the stage is currently holding active candidates. */
+  destinationStageId: z.uuid().optional(),
+});
+
+export type ArchiveStageInput = z.infer<typeof archiveStageSchema>;

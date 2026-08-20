@@ -43,6 +43,13 @@
       "when": 1787196251917,
       "tag": "0005_mute_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787197794823,
+      "tag": "0006_odd_magus",
+      "breakpoints": true
     }
   ]
 }

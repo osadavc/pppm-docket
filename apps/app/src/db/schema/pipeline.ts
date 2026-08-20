@@ -10,7 +10,7 @@ import {
 import { user } from "./auth";
 import { stageKind } from "./enums";
 import { positions } from "./positions";
-import { createdAt, updatedAt } from "./_shared";
+import { createdAt, tstz, updatedAt } from "./_shared";
 
 /**
  * The per-position pipeline instance. Once a position owns its stages it can be
@@ -34,12 +34,22 @@ export const positionStages = pgTable(
     minScorecards: integer("min_scorecards").default(1).notNull(),
     /** Target days-in-stage, compared against actuals in the time-in-stage report. */
     slaDays: integer("sla_days"),
+    /**
+     * Retired from the active pipeline but kept on the record. Stages are
+     * archived rather than deleted so the feedback already given at them, and
+     * the history of candidates who passed through them, survive intact.
+     */
+    isArchived: boolean("is_archived").default(false).notNull(),
+    archivedAt: tstz("archived_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   // Deliberately NOT unique on (positionId, orderIndex): a reorder rewrites
   // every row's index and a unique constraint would fail mid-statement.
-  (t) => [index("position_stages_position_order_idx").on(t.positionId, t.orderIndex)],
+  (t) => [
+    index("position_stages_position_order_idx").on(t.positionId, t.orderIndex),
+    index("position_stages_archived_idx").on(t.positionId, t.isArchived),
+  ],
 );
 
 export const scorecardCriteria = pgTable(

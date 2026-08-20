@@ -45,6 +45,9 @@ export default async function PositionPage({
     position.lastReviewDecision === "rejected" && position.status === "draft";
   const canConfigureStages = can(user.role, "position:stages:manage");
   const panels = Object.fromEntries(await getStagePanels(position.id));
+  // Archived stages stay on the record but are not part of the live process.
+  const activeStages = position.stages.filter((s) => !s.isArchived);
+  const archivedCount = position.stages.length - activeStages.length;
   const canEndSearch =
     can(user.role, "position:manage") &&
     (position.status === "open" || position.status === "on_hold");
@@ -212,7 +215,13 @@ export default async function PositionPage({
               </div>
             </CardHeader>
             <CardContent>
-              <StageList stages={position.stages} panels={panels} />
+              <StageList stages={activeStages} panels={panels} />
+              {archivedCount > 0 ? (
+                <p className="text-muted-foreground mt-4 text-xs">
+                  {archivedCount} archived stage{archivedCount === 1 ? "" : "s"} kept
+                  on the record with their feedback.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
         </div>
