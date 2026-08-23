@@ -20,6 +20,10 @@ import {
   uploadCv,
   validateCvFile,
 } from "@/lib/storage/attachments";
+import {
+  findCandidateByEmail,
+  type ExistingCandidate,
+} from "@/lib/queries/candidates";
 import { candidateSchema } from "@/lib/validation/candidate";
 import { fail, ok, type ActionResult } from "./result";
 
@@ -204,4 +208,17 @@ export async function addCandidate(
     await removeCv(storagePath);
     throw error;
   }
+}
+
+/**
+ * Email lookup for the add-candidate form. Read-only, but a Server Action
+ * rather than a route handler so it is authorized the same way every other
+ * mutation is — candidate history is not public.
+ */
+export async function lookupCandidateByEmail(
+  email: string,
+): Promise<ActionResult<ExistingCandidate | null>> {
+  await requirePermission("candidate:manage");
+  if (typeof email !== "string") return ok(null);
+  return ok(await findCandidateByEmail(email));
 }
