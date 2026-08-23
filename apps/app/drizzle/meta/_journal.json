@@ -50,6 +50,13 @@
       "when": 1787197794823,
       "tag": "0006_odd_magus",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787197795823,
+      "tag": "0007_candidate_email_ci",
+      "breakpoints": true
     }
   ]
 }
