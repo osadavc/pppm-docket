@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download, FileText } from "lucide-react";
+import { ArrowLeft, Download, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,9 +26,14 @@ function fileSize(bytes: number) {
 
 export default async function CandidatePage({
   params,
+  searchParams,
 }: PageProps<"/candidates/[candidateId]">) {
   await requirePermission("candidate:view");
   const { candidateId } = await params;
+  // Where the list was when they clicked through, so Back returns to the same
+  // filtered page rather than an unfiltered one.
+  const { from } = await searchParams;
+  const backHref = `/candidates${typeof from === "string" ? from : ""}`;
 
   const candidate = await getCandidate(candidateId);
   if (!candidate) notFound();
@@ -48,6 +53,12 @@ export default async function CandidatePage({
   return (
     <>
       <div>
+        <Link
+          href={backHref}
+          className="text-muted-foreground mb-2 inline-flex items-center gap-1 text-sm hover:underline"
+        >
+          <ArrowLeft className="size-3.5" /> Back to candidates
+        </Link>
         <h1 className="text-2xl font-semibold tracking-tight">{candidate.fullName}</h1>
         <p className="text-muted-foreground text-sm">
           {candidate.currentTitle

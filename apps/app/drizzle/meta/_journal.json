@@ -57,6 +57,13 @@
       "when": 1787197795823,
       "tag": "0007_candidate_email_ci",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787197796823,
+      "tag": "0008_candidate_search_indexes",
+      "breakpoints": true
     }
   ]
 }
