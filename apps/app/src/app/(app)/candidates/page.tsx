@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { CandidateFilters } from "@/components/candidates/candidate-filters";
+import { CandidatePagination } from "@/components/candidates/candidate-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,15 +17,36 @@ import {
 import { requirePermission } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { formatDate } from "@/lib/format";
-import { listCandidates } from "@/lib/queries/candidates";
+import {
+  listAllPositionsForFilter,
+  listStagesForFilter,
+  searchCandidates,
+} from "@/lib/queries/candidates";
+import {
+  APPLICATION_STATUS_LABELS,
+  buildCandidateQuery,
+  parseCandidateSearch,
+} from "@/lib/validation/candidate-search";
 import { CANDIDATE_SOURCE_LABELS } from "@/lib/validation/candidate";
 
 export const metadata: Metadata = { title: "Candidates · Docket" };
 
-export default async function CandidatesPage() {
+export default async function CandidatesPage({
+  searchParams,
+}: PageProps<"/candidates">) {
   const user = await requirePermission("candidate:view");
-  const rows = await listCandidates();
+  const search = parseCandidateSearch(await searchParams);
+
+  const [result, positions, stages] = await Promise.all([
+    searchCandidates(search),
+    listAllPositionsForFilter(),
+    listStagesForFilter(search.positionId),
+  ]);
+
   const canAdd = can(user.role, "candidate:manage");
+  // Carried onto each row so returning from a profile lands back on the same
+  // filtered page rather than at the top of an unfiltered list.
+  const returnTo = buildCandidateQuery(search);
 
   return (
     <>
@@ -43,9 +66,13 @@ export default async function CandidatesPage() {
         ) : null}
       </div>
 
-      {rows.length === 0 ? (
+      <CandidateFilters positions={positions} stages={stages} />
+
+      {result.rows.length === 0 ? (
         <Card className="text-muted-foreground p-10 text-center text-sm">
-          No candidates yet.
+          {result.total === 0 && !search.q && !search.positionId && !search.status
+            ? "No candidates yet."
+            : "No candidates match these filters."}
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
@@ -56,16 +83,20 @@ export default async function CandidatesPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Position</TableHead>
                   <TableHead>Stage</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Source</TableHead>
-                  <TableHead>Added</TableHead>
+                  <TableHead>Applied</TableHead>
                   <TableHead>CV</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={`${r.id}-${r.positionTitle ?? "none"}`}>
+                {result.rows.map((r) => (
+                  <TableRow key={r.applicationId ?? r.candidateId}>
                     <TableCell className="font-medium">
-                      <Link href={`/candidates/${r.id}`} className="hover:underline">
+                      <Link
+                        href={`/candidates/${r.candidateId}?from=${encodeURIComponent(returnTo)}`}
+                        className="hover:underline"
+                      >
                         {r.fullName}
                       </Link>
                       <span className="text-muted-foreground block text-xs">
@@ -84,11 +115,20 @@ export default async function CandidatesPage() {
                         "—"
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {CANDIDATE_SOURCE_LABELS[r.source]}
+                    <TableCell className="text-muted-foreground capitalize">
+                      {r.status
+                        ? APPLICATION_STATUS_LABELS[
+                            r.status as keyof typeof APPLICATION_STATUS_LABELS
+                          ]
+                        : "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(r.createdAt)}
+                      {CANDIDATE_SOURCE_LABELS[
+                        r.source as keyof typeof CANDIDATE_SOURCE_LABELS
+                      ]}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(r.appliedAt)}
                     </TableCell>
                     <TableCell>
                       {r.attachmentId ? (
@@ -109,6 +149,14 @@ export default async function CandidatesPage() {
           </div>
         </Card>
       )}
+
+      <CandidatePagination
+        search={search}
+        page={result.page}
+        pageCount={result.pageCount}
+        total={result.total}
+        pageSize={result.pageSize}
+      />
     </>
   );
 }
