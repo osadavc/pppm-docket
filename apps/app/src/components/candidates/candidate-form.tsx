@@ -23,7 +23,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { addCandidate } from "@/lib/actions/candidates";
+import { addCandidate, lookupCandidateByEmail } from "@/lib/actions/candidates";
+import { ExistingCandidateNotice } from "@/components/candidates/existing-candidate-notice";
+import type { ExistingCandidate } from "@/lib/queries/candidates";
 import { CANDIDATE_SOURCE_LABELS } from "@/lib/validation/candidate";
 
 type OpenPosition = { id: string; title: string; department: string };
@@ -36,6 +38,18 @@ export function CandidateForm({ positions }: { positions: OpenPosition[] }) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [source, setSource] = useState("referral");
   const [positionId, setPositionId] = useState(positions[0]?.id ?? "");
+  const [existing, setExisting] = useState<ExistingCandidate | null>(null);
+
+  // Checked when the email field loses focus rather than on every keystroke —
+  // this reads candidate history, so it should not fire mid-typing.
+  async function checkEmail(email: string) {
+    if (!email.includes("@")) {
+      setExisting(null);
+      return;
+    }
+    const result = await lookupCandidateByEmail(email);
+    setExisting(result.ok ? result.data : null);
+  }
 
   const err = (name: string) =>
     fieldErrors[name]?.[0] ? [{ message: fieldErrors[name]![0]! }] : [];
@@ -96,7 +110,13 @@ export function CandidateForm({ positions }: { positions: OpenPosition[] }) {
             </Field>
             <Field data-invalid={!!fieldErrors.email}>
               <FieldLabel htmlFor="email">Email</FieldLabel>
-              <Input id="email" name="email" type="email" autoComplete="off" />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="off"
+                onBlur={(e) => checkEmail(e.target.value)}
+              />
               <FieldError errors={err("email")} />
             </Field>
           </div>
@@ -130,6 +150,13 @@ export function CandidateForm({ positions }: { positions: OpenPosition[] }) {
           </Field>
         </CardContent>
       </Card>
+
+      {existing ? (
+        <ExistingCandidateNotice
+          candidate={existing}
+          selectedPositionId={positionId}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>
