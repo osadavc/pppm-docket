@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleSlash, Clock, EyeOff, Pencil, SlidersHorizontal, Undo2 } from "lucide-react";
+import {
+  CircleSlash,
+  Clock,
+  Columns3,
+  EyeOff,
+  Pencil,
+  SlidersHorizontal,
+  Undo2,
+} from "lucide-react";
 import { PositionStatusBadge } from "@/components/positions/position-status-badge";
 import { StageList } from "@/components/positions/stage-list";
 import { SubmitForApprovalButton } from "@/components/positions/submit-for-approval-button";
@@ -88,6 +96,11 @@ export default async function PositionPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/positions/${position.id}/pipeline`}>
+              <Columns3 /> Pipeline
+            </Link>
+          </Button>
           {canManage ? (
             <Button asChild variant="outline">
               <Link href={`/positions/${position.id}/edit`}>
