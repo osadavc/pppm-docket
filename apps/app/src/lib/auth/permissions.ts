@@ -25,6 +25,13 @@ export const PERMISSIONS = {
   "application:view": ["hr", "management"],
   "application:manage": ["hr"],
   "application:override-gate": ["hr"],
+  /**
+   * Skipping a stage, moving someone backwards, holding and resuming are
+   * exceptions to the normal flow. HR runs the process; departing from it is
+   * the hiring manager’s call, so this is management-only and deliberately
+   * separate from "application:manage".
+   */
+  "application:override-flow": ["management"],
   "interview:view": ["hr", "management"],
   "interview:manage": ["hr"],
   "scorecard:read-all": ["hr", "management"],
