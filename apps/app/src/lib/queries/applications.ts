@@ -13,6 +13,7 @@ import {
   user,
 } from "@/db/schema";
 import { evaluateStageGate, type StageGate } from "@/lib/domain/advancement";
+import { REJECTION_REASON_LABELS } from "@/lib/validation/application";
 
 export type AdvanceContext = {
   applicationId: string;
@@ -149,4 +150,38 @@ export async function getAdvanceContext(
     outstandingInterviewers,
     isFinalStage: row.stageId !== null && nextStage === null,
   };
+}
+
+export type RejectionBreakdownRow = {
+  reason: string;
+  label: string;
+  count: number;
+};
+
+/**
+ * Drop-out analysis for a position. Possible only because the reason is an
+ * enum column — this is the payoff for not storing it as free text.
+ */
+export async function getRejectionBreakdown(
+  positionId: string,
+): Promise<RejectionBreakdownRow[]> {
+  const rows = await db
+    .select({ reason: applications.rejectionReason, n: count() })
+    .from(applications)
+    .where(
+      and(
+        eq(applications.positionId, positionId),
+        eq(applications.status, "rejected"),
+      ),
+    )
+    .groupBy(applications.rejectionReason);
+
+  return rows
+    .filter((r) => r.reason !== null)
+    .map((r) => ({
+      reason: r.reason!,
+      label: REJECTION_REASON_LABELS[r.reason!],
+      count: r.n,
+    }))
+    .sort((a, b) => b.count - a.count);
 }
