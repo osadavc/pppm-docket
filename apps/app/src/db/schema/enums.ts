@@ -57,6 +57,26 @@ export const stageProgressStatus = pgEnum("stage_progress_status", [
   "skipped",
 ]);
 
+/**
+ * Why a candidate was rejected, as a fixed list rather than free text.
+ *
+ * An enum is what makes drop-out analysis possible: "not a fit" typed forty
+ * different ways aggregates to nothing. Free-text detail still has a home in
+ * `applications.decisionReason`, but the reportable fact is this column.
+ */
+export const rejectionReason = pgEnum("rejection_reason", [
+  "insufficient_experience",
+  "skills_mismatch",
+  "failed_assessment",
+  "communication_concerns",
+  "values_mismatch",
+  "salary_expectations",
+  "right_to_work_or_location",
+  "stronger_candidate_selected",
+  "position_closed",
+  "other",
+]);
+
 export const candidateSource = pgEnum("candidate_source", [
   "careers_site",
   "referral",
