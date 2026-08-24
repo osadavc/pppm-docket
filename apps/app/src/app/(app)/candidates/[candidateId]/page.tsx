@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AdvanceButton } from "@/components/applications/advance-button";
+import { FlowOverrideMenu } from "@/components/applications/flow-override-menu";
 import { requirePermission } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { getAdvanceContext } from "@/lib/queries/applications";
@@ -42,7 +43,8 @@ export default async function CandidatePage({
   if (!candidate) notFound();
 
   const canAdvance = can(user.role, "application:manage");
-  const contexts = canAdvance
+  const canOverrideFlow = can(user.role, "application:override-flow");
+  const contexts = canAdvance || canOverrideFlow
     ? Object.fromEntries(
         (
           await Promise.all(
@@ -119,11 +121,14 @@ export default async function CandidatePage({
                       <Badge variant="secondary" className="font-normal capitalize">
                         {a.status.replace("_", " ")}
                       </Badge>
-                      {contexts[a.id] ? (
+                      {contexts[a.id] && canAdvance ? (
                         <AdvanceButton
                           context={contexts[a.id]!}
                           canOverride={can(user.role, "application:override-gate")}
                         />
+                      ) : null}
+                      {contexts[a.id] && canOverrideFlow ? (
+                        <FlowOverrideMenu context={contexts[a.id]!} />
                       ) : null}
                     </div>
                   </div>
