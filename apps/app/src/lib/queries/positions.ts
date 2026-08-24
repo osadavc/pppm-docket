@@ -49,6 +49,7 @@ export type PositionListItem = {
   createdAt: Date;
   stageCount: number;
   candidateCount: number;
+  onHoldCount: number;
 };
 
 /** Internal listing — staff only, includes drafts. */
@@ -63,13 +64,23 @@ export async function listPositions(): Promise<PositionListItem[]> {
       openings: positions.openings,
       applicationDeadline: positions.applicationDeadline,
       createdAt: positions.createdAt,
+      // The outer reference is written literally rather than interpolated.
+      // Drizzle renders an interpolated column inside a sql template as a bare
+      // "id", which resolves against the SUBQUERY's table rather than this one
+      // — so the predicate silently compares a table to itself and counts zero.
       stageCount: sql<number>`(
-        select count(*)::int from ${positionStages}
-        where ${positionStages.positionId} = ${positions.id}
+        select count(*)::int from position_stages ps
+        where ps.position_id = "positions"."id"
       )`,
+      // Active only: a held candidate is out of the running until resumed, so
+      // counting them here would overstate how full the pipeline is.
       candidateCount: sql<number>`(
-        select count(*)::int from ${applications}
-        where ${applications.positionId} = ${positions.id}
+        select count(*)::int from applications a
+        where a.position_id = "positions"."id" and a.status = 'active'
+      )`,
+      onHoldCount: sql<number>`(
+        select count(*)::int from applications a
+        where a.position_id = "positions"."id" and a.status = 'on_hold'
       )`,
     })
     .from(positions)

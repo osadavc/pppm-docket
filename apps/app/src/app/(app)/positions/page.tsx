@@ -58,7 +58,8 @@ export default async function PositionsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Openings</TableHead>
                   <TableHead className="text-right">Stages</TableHead>
-                  <TableHead className="text-right">Candidates</TableHead>
+                  <TableHead className="text-right">Active</TableHead>
+                  <TableHead className="text-right">On hold</TableHead>
                   <TableHead>Deadline</TableHead>
                 </TableRow>
               </TableHeader>
@@ -77,6 +78,9 @@ export default async function PositionsPage() {
                     <TableCell className="text-right tabular-nums">{p.openings}</TableCell>
                     <TableCell className="text-right tabular-nums">{p.stageCount}</TableCell>
                     <TableCell className="text-right tabular-nums">{p.candidateCount}</TableCell>
+                    <TableCell className="text-muted-foreground text-right tabular-nums">
+                      {p.onHoldCount || "—"}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(p.applicationDeadline)}
                     </TableCell>
