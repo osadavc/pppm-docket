@@ -35,7 +35,9 @@ export function PipelineBoard({ columns }: { columns: BoardColumn[] }) {
                 column.candidates.map((c) => (
                   <Link
                     key={c.applicationId}
-                    href={`/candidates/${c.candidateId}`}
+                    // The application, not the candidate: interviewers can open
+                    // this but have no access to the candidate directory.
+                    href={`/applications/${c.applicationId}`}
                     className="hover:bg-accent/50 block rounded-lg border p-3 transition-colors"
                   >
                     <p className="truncate text-sm font-medium">{c.fullName}</p>
