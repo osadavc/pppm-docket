@@ -126,7 +126,13 @@ export default async function CandidatePage({
                         {a.position?.title}
                       </Link>
                       <p className="text-muted-foreground text-xs">
-                        Applied {formatDate(a.appliedAt)}
+                        Applied {formatDate(a.appliedAt)} ·{" "}
+                        <Link
+                          href={`/applications/${a.id}`}
+                          className="underline underline-offset-4"
+                        >
+                          History
+                        </Link>
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
