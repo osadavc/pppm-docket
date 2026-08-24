@@ -18,6 +18,9 @@ import {
   type HoldApplicationInput,
   type MoveBackInput,
   type ResumeApplicationInput,
+  rejectApplicationSchema,
+  REJECTION_REASON_LABELS,
+  type RejectApplicationInput,
   type SkipStageInput,
 } from "@/lib/validation/application";
 import { fail, ok, type ActionResult } from "./result";
@@ -490,6 +493,90 @@ export async function resumeApplication(
   });
 
   revalidatePath("/candidates");
+  revalidatePath(`/positions/${context.positionId}/pipeline`);
+  return ok(undefined);
+}
+
+/**
+ * Reject a candidate.
+ *
+ * The reason is a fixed enum rather than free text because the point of
+ * capturing it is aggregation: "not a fit" typed forty different ways adds up
+ * to nothing. The database enforces the same rule with a CHECK constraint, so
+ * a rejected application without a reason cannot exist by any route.
+ */
+export async function rejectApplication(
+  input: RejectApplicationInput,
+): Promise<ActionResult<void>> {
+  const actor = await requirePermission("application:manage");
+
+  const parsed = rejectApplicationSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(
+      "Choose a reason for the rejection.",
+      parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    );
+  }
+  const { applicationId, reason, note } = parsed.data;
+
+  const context = await getAdvanceContext(applicationId);
+  if (!context) return fail("That application no longer exists.");
+  if (context.status === "rejected") {
+    return fail(`${context.candidateName} has already been rejected.`);
+  }
+  if (context.status === "hired") {
+    return fail(`${context.candidateName} has been hired and cannot be rejected.`);
+  }
+
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(applications)
+      .set({
+        status: "rejected",
+        rejectionReason: reason,
+        decisionReason: note || null,
+        decisionAt: now,
+        decisionById: actor.id,
+      })
+      .where(eq(applications.id, applicationId));
+
+    // The stage they were on is where they dropped out — record that rather
+    // than leaving it looking in-progress forever.
+    if (context.currentStage) {
+      await tx
+        .update(applicationStages)
+        .set({ status: "failed", completedAt: now, decidedById: actor.id })
+        .where(
+          and(
+            eq(applicationStages.applicationId, applicationId),
+            eq(applicationStages.positionStageId, context.currentStage.id),
+          ),
+        );
+    }
+
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "application.rejected",
+      entityType: "application",
+      entityId: applicationId,
+      applicationId,
+      positionId: context.positionId,
+      summary: `${actor.name} rejected ${context.candidateName} at “${context.currentStage?.name ?? "—"}” — ${REJECTION_REASON_LABELS[reason]}`,
+      metadata: {
+        reason,
+        reasonLabel: REJECTION_REASON_LABELS[reason],
+        stageId: context.currentStage?.id ?? null,
+        stageName: context.currentStage?.name ?? null,
+        decidedAt: now.toISOString(),
+        note: note ?? null,
+      },
+    });
+  });
+
+  revalidatePath("/candidates");
+  revalidatePath(`/positions/${context.positionId}`);
   revalidatePath(`/positions/${context.positionId}/pipeline`);
   return ok(undefined);
 }

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { AdvanceButton } from "@/components/applications/advance-button";
 import { FlowOverrideMenu } from "@/components/applications/flow-override-menu";
+import { RejectDialog } from "@/components/applications/reject-dialog";
 import { requirePermission } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { getAdvanceContext } from "@/lib/queries/applications";
@@ -126,6 +127,9 @@ export default async function CandidatePage({
                           context={contexts[a.id]!}
                           canOverride={can(user.role, "application:override-gate")}
                         />
+                      ) : null}
+                      {contexts[a.id] && canAdvance && a.status === "active" ? (
+                        <RejectDialog context={contexts[a.id]!} />
                       ) : null}
                       {contexts[a.id] && canOverrideFlow ? (
                         <FlowOverrideMenu context={contexts[a.id]!} />
