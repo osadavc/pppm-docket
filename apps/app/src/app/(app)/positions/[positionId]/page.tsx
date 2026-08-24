@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  BadgeCheck,
   CircleSlash,
   Clock,
   Columns3,
@@ -62,7 +63,11 @@ export default async function PositionPage({
   const canEndSearch =
     can(user.role, "position:manage") &&
     (position.status === "open" || position.status === "on_hold");
-  const fillSummary = canEndSearch ? await getFillSummary(position.id) : null;
+  // Always loaded: how a position stands against approved headcount is a fact
+  // about the position, not something only the person closing it needs.
+  const fill = await getFillSummary(position.id);
+  const fillSummary = canEndSearch ? fill : null;
+  const openingsFilled = fill.openings > 0 && fill.hired >= fill.openings;
   const isEnded = isTerminalStatus(position.status);
   const salary =
     position.salaryMin || position.salaryMax
@@ -74,6 +79,7 @@ export default async function PositionPage({
     ["Location", position.location || "—"],
     ["Employment type", EMPLOYMENT_TYPE_LABELS[position.employmentType]],
     ["Openings", String(position.openings)],
+    ["Hired", `${fill.hired} of ${fill.openings}`],
     ["Application deadline", formatDate(position.applicationDeadline)],
     ["Opened", formatDate(position.openedAt)],
     ["Closed", formatDate(position.closedAt)],
@@ -126,6 +132,22 @@ export default async function PositionPage({
           ) : null}
         </div>
       </div>
+
+      {openingsFilled && !isEnded ? (
+        <Alert>
+          <BadgeCheck />
+          <AlertTitle>
+            {fill.hired === fill.openings
+              ? `All ${fill.openings} opening${fill.openings === 1 ? "" : "s"} filled`
+              : `${fill.hired} hires against ${fill.openings} opening${fill.openings === 1 ? "" : "s"}`}
+          </AlertTitle>
+          <AlertDescription>
+            {canEndSearch
+              ? "Mark this position filled so it comes off the careers board and stops accepting applications."
+              : "This position is still open and accepting applications."}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {isEnded ? (
         <Alert>

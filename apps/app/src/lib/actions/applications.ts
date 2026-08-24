@@ -8,6 +8,7 @@ import { logActivity } from "@/lib/activity/log";
 import { requirePermission } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { getAdvanceContext } from "@/lib/queries/applications";
+import { getFillSummary } from "@/lib/queries/positions";
 import {
   advanceApplicationSchema,
   holdApplicationSchema,
@@ -18,8 +19,10 @@ import {
   type HoldApplicationInput,
   type MoveBackInput,
   type ResumeApplicationInput,
+  hireApplicationSchema,
   rejectApplicationSchema,
   REJECTION_REASON_LABELS,
+  type HireApplicationInput,
   type RejectApplicationInput,
   type SkipStageInput,
 } from "@/lib/validation/application";
@@ -579,4 +582,100 @@ export async function rejectApplication(
   revalidatePath(`/positions/${context.positionId}`);
   revalidatePath(`/positions/${context.positionId}/pipeline`);
   return ok(undefined);
+}
+
+/**
+ * Mark a candidate hired.
+ *
+ * Returns how the position now stands against its approved headcount so the
+ * caller can prompt HR to close it out. Exceeding the opening count is warned
+ * about rather than blocked: headcount changes, and refusing to record a hire
+ * that actually happened would put the system out of step with reality — the
+ * same reasoning as the under-hire warning when closing a position.
+ */
+export async function hireApplication(
+  input: HireApplicationInput,
+): Promise<
+  ActionResult<{
+    hired: number;
+    openings: number;
+    openingsFilled: boolean;
+    exceedsOpenings: boolean;
+  }>
+> {
+  const actor = await requirePermission("application:manage");
+
+  const parsed = hireApplicationSchema.safeParse(input);
+  if (!parsed.success) return fail("That request is not valid.");
+  const { applicationId, note } = parsed.data;
+
+  const context = await getAdvanceContext(applicationId);
+  if (!context) return fail("That application no longer exists.");
+  if (context.status === "hired") {
+    return fail(`${context.candidateName} has already been hired.`);
+  }
+  if (context.status === "rejected") {
+    return fail(`${context.candidateName} was rejected and cannot be hired.`);
+  }
+
+  const before = await getFillSummary(context.positionId);
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(applications)
+      .set({
+        status: "hired",
+        decisionReason: note || null,
+        decisionAt: now,
+        decisionById: actor.id,
+      })
+      .where(eq(applications.id, applicationId));
+
+    // They completed the process rather than being skipped out of it.
+    if (context.currentStage) {
+      await tx
+        .update(applicationStages)
+        .set({ status: "passed", completedAt: now, decidedById: actor.id })
+        .where(
+          and(
+            eq(applicationStages.applicationId, applicationId),
+            eq(applicationStages.positionStageId, context.currentStage.id),
+          ),
+        );
+    }
+
+    const hired = before.hired + 1;
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "application.hired",
+      entityType: "application",
+      entityId: applicationId,
+      applicationId,
+      positionId: context.positionId,
+      summary: `${actor.name} hired ${context.candidateName} for “${context.positionTitle}” (${hired} of ${before.openings} opening${before.openings === 1 ? "" : "s"} filled)`,
+      metadata: {
+        stageId: context.currentStage?.id ?? null,
+        stageName: context.currentStage?.name ?? null,
+        decidedAt: now.toISOString(),
+        note: note ?? null,
+        hiredCount: hired,
+        openings: before.openings,
+        exceedsOpenings: hired > before.openings,
+      },
+    });
+  });
+
+  const hired = before.hired + 1;
+
+  revalidatePath("/candidates");
+  revalidatePath("/positions");
+  revalidatePath(`/positions/${context.positionId}`);
+  revalidatePath(`/positions/${context.positionId}/pipeline`);
+  return ok({
+    hired,
+    openings: before.openings,
+    openingsFilled: hired >= before.openings,
+    exceedsOpenings: hired > before.openings,
+  });
 }

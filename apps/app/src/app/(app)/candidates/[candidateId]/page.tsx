@@ -14,6 +14,8 @@ import {
 import { AdvanceButton } from "@/components/applications/advance-button";
 import { FlowOverrideMenu } from "@/components/applications/flow-override-menu";
 import { RejectDialog } from "@/components/applications/reject-dialog";
+import { HireDialog } from "@/components/applications/hire-dialog";
+import { getFillSummary } from "@/lib/queries/positions";
 import { requirePermission } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { getAdvanceContext } from "@/lib/queries/applications";
@@ -52,6 +54,18 @@ export default async function CandidatePage({
             candidate.applications.map(async (a) => [a.id, await getAdvanceContext(a.id)] as const),
           )
         ).filter(([, c]) => c !== null),
+      )
+    : {};
+
+  // Hiring needs to know how the position stands against approved headcount,
+  // so the dialog can warn before the fact and prompt to close out after.
+  const fills = canAdvance
+    ? Object.fromEntries(
+        await Promise.all(
+          candidate.applications
+            .filter((a) => a.position?.id)
+            .map(async (a) => [a.id, await getFillSummary(a.position!.id)] as const),
+        ),
       )
     : {};
 
@@ -127,6 +141,9 @@ export default async function CandidatePage({
                           context={contexts[a.id]!}
                           canOverride={can(user.role, "application:override-gate")}
                         />
+                      ) : null}
+                      {contexts[a.id] && fills[a.id] && canAdvance && a.status === "active" ? (
+                        <HireDialog context={contexts[a.id]!} fill={fills[a.id]!} />
                       ) : null}
                       {contexts[a.id] && canAdvance && a.status === "active" ? (
                         <RejectDialog context={contexts[a.id]!} />
