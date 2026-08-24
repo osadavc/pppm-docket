@@ -11,7 +11,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AdvanceButton } from "@/components/applications/advance-button";
 import { requirePermission } from "@/lib/auth/guards";
+import { can } from "@/lib/auth/permissions";
+import { getAdvanceContext } from "@/lib/queries/applications";
 import { formatDate } from "@/lib/format";
 import { getCandidate } from "@/lib/queries/candidates";
 import { CANDIDATE_SOURCE_LABELS } from "@/lib/validation/candidate";
@@ -28,7 +31,7 @@ export default async function CandidatePage({
   params,
   searchParams,
 }: PageProps<"/candidates/[candidateId]">) {
-  await requirePermission("candidate:view");
+  const user = await requirePermission("candidate:view");
   const { candidateId } = await params;
   // Where the list was when they clicked through, so Back returns to the same
   // filtered page rather than an unfiltered one.
@@ -37,6 +40,17 @@ export default async function CandidatePage({
 
   const candidate = await getCandidate(candidateId);
   if (!candidate) notFound();
+
+  const canAdvance = can(user.role, "application:manage");
+  const contexts = canAdvance
+    ? Object.fromEntries(
+        (
+          await Promise.all(
+            candidate.applications.map(async (a) => [a.id, await getAdvanceContext(a.id)] as const),
+          )
+        ).filter(([, c]) => c !== null),
+      )
+    : {};
 
   const facts: Array<[string, string]> = [
     ["Email", candidate.email],
@@ -105,6 +119,12 @@ export default async function CandidatePage({
                       <Badge variant="secondary" className="font-normal capitalize">
                         {a.status.replace("_", " ")}
                       </Badge>
+                      {contexts[a.id] ? (
+                        <AdvanceButton
+                          context={contexts[a.id]!}
+                          canOverride={can(user.role, "application:override-gate")}
+                        />
+                      ) : null}
                     </div>
                   </div>
                 ))
