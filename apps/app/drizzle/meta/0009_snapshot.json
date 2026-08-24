@@ -1,6 +1,6 @@
 {
-  "id": "cc699fc1-46a9-44e0-ae84-eeb14615063b",
-  "prevId": "fd5b38ae-4878-411a-ad20-f5b13c5878b6",
+  "id": "cc03006b-5017-408c-a7f4-7b0fa6494593",
+  "prevId": "3514a175-dec7-4ede-a57b-27afb4638165",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1761,6 +1761,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "rejection_reason": {
+          "name": "rejection_reason",
+          "type": "rejection_reason",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
         "decision_reason": {
           "name": "decision_reason",
           "type": "text",
@@ -1851,6 +1858,27 @@
           "columns": [
             {
               "expression": "candidate_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "applications_rejection_reason_idx": {
+          "name": "applications_rejection_reason_idx",
+          "columns": [
+            {
+              "expression": "position_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "rejection_reason",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3361,6 +3389,22 @@
         "no",
         "yes",
         "strong_yes"
+      ]
+    },
+    "public.rejection_reason": {
+      "name": "rejection_reason",
+      "schema": "public",
+      "values": [
+        "insufficient_experience",
+        "skills_mismatch",
+        "failed_assessment",
+        "communication_concerns",
+        "values_mismatch",
+        "salary_expectations",
+        "right_to_work_or_location",
+        "stronger_candidate_selected",
+        "position_closed",
+        "other"
       ]
     },
     "public.review_decision": {

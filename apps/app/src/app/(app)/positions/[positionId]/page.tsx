@@ -33,6 +33,7 @@ import {
 } from "@/lib/domain/position-status";
 import { getFillSummary, getPosition } from "@/lib/queries/positions";
 import { getStagePanels } from "@/lib/queries/stage-interviewers";
+import { getRejectionBreakdown } from "@/lib/queries/applications";
 
 export const metadata: Metadata = { title: "Position · Docket" };
 
@@ -53,6 +54,8 @@ export default async function PositionPage({
     position.lastReviewDecision === "rejected" && position.status === "draft";
   const canConfigureStages = can(user.role, "position:stages:manage");
   const panels = Object.fromEntries(await getStagePanels(position.id));
+  const rejections = await getRejectionBreakdown(position.id);
+  const rejectedTotal = rejections.reduce((sum, r) => sum + r.count, 0);
   // Archived stages stay on the record but are not part of the live process.
   const activeStages = position.stages.filter((s) => !s.isArchived);
   const archivedCount = position.stages.length - activeStages.length;
@@ -204,6 +207,33 @@ export default async function PositionPage({
               </CardHeader>
               <CardContent>
                 <p className="text-sm whitespace-pre-wrap">{position.requirements}</p>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {rejections.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Why candidates dropped out</CardTitle>
+                <CardDescription>
+                  {rejectedTotal} rejection{rejectedTotal === 1 ? "" : "s"} on this
+                  position, grouped by reason.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {rejections.map((r) => (
+                  <div key={r.reason} className="flex items-center gap-3">
+                    <span className="min-w-0 flex-1 truncate text-sm">{r.label}</span>
+                    <span
+                      className="bg-muted h-2 rounded-full"
+                      style={{ width: `${Math.round((r.count / rejectedTotal) * 60) + 4}%` }}
+                      aria-hidden
+                    />
+                    <span className="text-muted-foreground w-8 text-right text-sm tabular-nums">
+                      {r.count}
+                    </span>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           ) : null}

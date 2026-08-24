@@ -1,7 +1,7 @@
 import { index, integer, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { candidates } from "./candidates";
-import { applicationStatus, stageProgressStatus } from "./enums";
+import { applicationStatus, rejectionReason, stageProgressStatus } from "./enums";
 import { positionStages } from "./pipeline";
 import { positions } from "./positions";
 import { createdAt, tstz, updatedAt } from "./_shared";
@@ -27,7 +27,13 @@ export const applications = pgTable(
     decisionById: text("decision_by_id").references(() => user.id, {
       onDelete: "set null",
     }),
-    /** Rejection / hold / hire note. */
+    /**
+     * The structured, reportable reason. Required whenever status is
+     * 'rejected' — enforced by a CHECK constraint, so a rejection without a
+     * reason is impossible even from a direct SQL write.
+     */
+    rejectionReason: rejectionReason("rejection_reason"),
+    /** Free-text detail accompanying the decision. Never the reportable fact. */
     decisionReason: text("decision_reason"),
     createdById: text("created_by_id")
       .notNull()
@@ -44,6 +50,8 @@ export const applications = pgTable(
     index("applications_position_status_idx").on(t.positionId, t.status),
     index("applications_current_stage_idx").on(t.currentStageId),
     index("applications_candidate_idx").on(t.candidateId),
+    // Drop-out analysis groups by this, always within a position.
+    index("applications_rejection_reason_idx").on(t.positionId, t.rejectionReason),
   ],
 );
 
