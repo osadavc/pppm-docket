@@ -1,5 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { notFound } from "next/navigation";
+import { z } from "zod";
 import { db } from "@/db/client";
 import { attachments } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/guards";
@@ -19,13 +21,13 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ attachmentId: string }> },
 ) {
+  const { attachmentId } = await params;
+  if (!z.uuid().safeParse(attachmentId).success) notFound();
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Sign in to download this file." }, { status: 401 });
   }
-
-  const { attachmentId } = await params;
-
   const attachment = await db.query.attachments.findFirst({
     where: eq(attachments.id, attachmentId),
   });

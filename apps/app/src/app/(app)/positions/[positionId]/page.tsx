@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import {
   BadgeCheck,
   CircleSlash,
@@ -41,8 +42,10 @@ export const metadata: Metadata = { title: "Position · Docket" };
 export default async function PositionPage({
   params,
 }: PageProps<"/positions/[positionId]">) {
-  const user = await requirePermission("position:view");
   const { positionId } = await params;
+  if (!z.uuid().safeParse(positionId).success) notFound();
+
+  const user = await requirePermission("position:view");
 
   const position = await getPosition(positionId);
   if (!position) notFound();

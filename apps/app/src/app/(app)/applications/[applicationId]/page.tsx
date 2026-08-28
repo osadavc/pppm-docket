@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
+import { z } from "zod";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,8 +25,10 @@ export const metadata: Metadata = { title: "Application · Docket" };
 export default async function ApplicationPage({
   params,
 }: PageProps<"/applications/[applicationId]">) {
-  const viewer = await requireUser();
   const { applicationId } = await params;
+  if (!z.uuid().safeParse(applicationId).success) notFound();
+
+  const viewer = await requireUser();
 
   const header = await getApplicationHeader(applicationId);
   if (!header) notFound();

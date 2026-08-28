@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +14,7 @@ export default async function CareersRolePage({
   params,
 }: PageProps<"/careers/[positionId]">) {
   const { positionId } = await params;
+  if (!z.uuid().safeParse(positionId).success) notFound();
 
   // Returns nothing unless the position is open, so an unapproved role cannot
   // be reached even by guessing its id.

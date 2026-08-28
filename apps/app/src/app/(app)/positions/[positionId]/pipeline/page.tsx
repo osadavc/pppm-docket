@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 import { PipelineBoard } from "@/components/pipeline/pipeline-board";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,8 +15,10 @@ export const metadata: Metadata = { title: "Pipeline · Docket" };
 export default async function PipelinePage({
   params,
 }: PageProps<"/positions/[positionId]/pipeline">) {
-  await requirePermission("position:view");
   const { positionId } = await params;
+  if (!z.uuid().safeParse(positionId).success) notFound();
+
+  await requirePermission("position:view");
 
   const position = await getPosition(positionId);
   if (!position) notFound();

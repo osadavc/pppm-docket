@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { ArrowLeft, Download, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,8 +36,10 @@ export default async function CandidatePage({
   params,
   searchParams,
 }: PageProps<"/candidates/[candidateId]">) {
-  const user = await requirePermission("candidate:view");
   const { candidateId } = await params;
+  if (!z.uuid().safeParse(candidateId).success) notFound();
+
+  const user = await requirePermission("candidate:view");
   // Where the list was when they clicked through, so Back returns to the same
   // filtered page rather than an unfiltered one.
   const { from } = await searchParams;

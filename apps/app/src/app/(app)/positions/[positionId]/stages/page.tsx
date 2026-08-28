@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { ArrowLeft } from "lucide-react";
 import { StageEditor, type EditableStage } from "@/components/positions/stage-editor";
 import { requirePermission } from "@/lib/auth/guards";
@@ -16,10 +17,12 @@ export const metadata: Metadata = { title: "Interview stages · Docket" };
 export default async function PositionStagesPage({
   params,
 }: PageProps<"/positions/[positionId]/stages">) {
+  const { positionId } = await params;
+  if (!z.uuid().safeParse(positionId).success) notFound();
+
   // Management-only: the interview process for a role belongs to the manager
   // hiring for it.
   await requirePermission("position:stages:manage");
-  const { positionId } = await params;
 
   const position = await getPosition(positionId);
   if (!position) notFound();

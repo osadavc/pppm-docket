@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { PositionForm } from "@/components/positions/position-form";
 import { requirePermission } from "@/lib/auth/guards";
 import { toDateInputValue } from "@/lib/format";
@@ -12,8 +13,10 @@ export const metadata: Metadata = { title: "Edit position · Docket" };
 export default async function EditPositionPage({
   params,
 }: PageProps<"/positions/[positionId]/edit">) {
-  await requirePermission("position:manage");
   const { positionId } = await params;
+  if (!z.uuid().safeParse(positionId).success) notFound();
+
+  await requirePermission("position:manage");
 
   const position = await getPosition(positionId);
   if (!position) notFound();
