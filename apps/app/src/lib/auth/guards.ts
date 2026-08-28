@@ -48,22 +48,24 @@ export const getSession = cache(async () => {
   return { session: session.session, user };
 });
 
+/** Returns the current user only while the account is active. */
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  return (await getSession())?.user ?? null;
+  const user = (await getSession())?.user;
+  return user?.isActive ? user : null;
 }
 
-/** Redirects to sign-in when there is no valid session. */
+/** Redirects missing or deactivated sessions to the appropriate sign-in state. */
 export async function requireUser(nextPath?: string): Promise<SessionUser> {
-  const user = await getCurrentUser();
-  if (!user) {
+  const session = await getSession();
+  if (!session) {
     redirect(
       nextPath ? `/sign-in?next=${encodeURIComponent(nextPath)}` : "/sign-in",
     );
   }
-  if (!user.isActive) {
+  if (!session.user.isActive) {
     redirect("/sign-in?error=deactivated");
   }
-  return user;
+  return session.user;
 }
 
 /** Requires one of the given roles; 403s otherwise. */

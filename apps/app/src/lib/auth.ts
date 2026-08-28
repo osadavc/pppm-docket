@@ -2,12 +2,15 @@ import "server-only";
 
 // `better-auth/minimal` excludes the built-in database adapters we do not use
 // (we bring our own via drizzleAdapter), which keeps the server bundle smaller.
+import { eq } from "drizzle-orm";
+import { APIError } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db/client";
 import * as schema from "@/db/schema";
 import { env } from "@/env";
+import { DEACTIVATED_ACCOUNT_ERROR } from "@/lib/auth/errors";
 
 export const auth = betterAuth({
   appName: "Docket",
@@ -61,6 +64,24 @@ export const auth = betterAuth({
      * for one session lookup per request instead.
      */
     cookieCache: { enabled: false },
+  },
+
+  databaseHooks: {
+    session: {
+      create: {
+        async before(session) {
+          const [sessionUser] = await db
+            .select({ isActive: schema.user.isActive })
+            .from(schema.user)
+            .where(eq(schema.user.id, session.userId))
+            .limit(1);
+
+          if (sessionUser?.isActive === false) {
+            throw APIError.from("FORBIDDEN", DEACTIVATED_ACCOUNT_ERROR);
+          }
+        },
+      },
+    },
   },
 
   // Must be last — lets Server Actions set auth cookies.

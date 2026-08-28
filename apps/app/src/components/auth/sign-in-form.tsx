@@ -24,9 +24,11 @@ import { signInSchema, type SignInInput } from "@/lib/validation/auth";
 export function SignInForm({
   next,
   initialError,
+  canSignOut = false,
 }: {
   next: string;
   initialError?: string;
+  canSignOut?: boolean;
 }) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | undefined>(initialError);
@@ -44,12 +46,25 @@ export function SignInForm({
     });
 
     if (error) {
-      setFormError(error.message ?? "Could not sign in. Check your credentials.");
+      setFormError(
+        error.message ?? "Could not sign in. Check your credentials.",
+      );
       return;
     }
 
     toast.success("Signed in");
     router.push(next);
+    router.refresh();
+  }
+
+  async function handleSignOut() {
+    const { error } = await authClient.signOut();
+    if (error) {
+      setFormError(error.message ?? "Could not sign out. Try again.");
+      return;
+    }
+
+    toast.success("Signed out");
     router.refresh();
   }
 
@@ -80,7 +95,9 @@ export function SignInForm({
               aria-invalid={!!form.formState.errors.email}
               {...form.register("email")}
             />
-            <FieldError errors={[form.formState.errors.email].filter(Boolean)} />
+            <FieldError
+              errors={[form.formState.errors.email].filter(Boolean)}
+            />
           </Field>
 
           <Field data-invalid={!!form.formState.errors.password}>
@@ -92,17 +109,36 @@ export function SignInForm({
               aria-invalid={!!form.formState.errors.password}
               {...form.register("password")}
             />
-            <FieldError errors={[form.formState.errors.password].filter(Boolean)} />
+            <FieldError
+              errors={[form.formState.errors.password].filter(Boolean)}
+            />
           </Field>
         </CardContent>
 
         <CardFooter className="mt-6 flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={form.formState.isSubmitting}
+          >
             {form.formState.isSubmitting ? "Signing in…" : "Sign in"}
           </Button>
+          {canSignOut ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleSignOut}
+            >
+              Sign out and use another account
+            </Button>
+          ) : null}
           <p className="text-muted-foreground text-sm">
             No account?{" "}
-            <Link href="/sign-up" className="text-foreground underline underline-offset-4">
+            <Link
+              href="/sign-up"
+              className="text-foreground underline underline-offset-4"
+            >
               Create one
             </Link>
           </p>
