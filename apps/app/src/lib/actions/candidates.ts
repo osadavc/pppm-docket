@@ -20,6 +20,7 @@ import {
   uploadCv,
   validateCvFile,
 } from "@/lib/storage/attachments";
+import { BUCKET } from "@/lib/storage/supabase";
 import {
   findCandidateByEmail,
   type ExistingCandidate,
@@ -173,6 +174,7 @@ export async function addCandidate(
         kind: "cv",
         candidateId,
         applicationId,
+        bucket: BUCKET,
         storagePath,
         fileName: cv.name,
         mimeType: cv.type,

@@ -26,7 +26,7 @@ const schema = z.object({
   // Supabase Storage (CV uploads). The service role key is server-only.
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-  SUPABASE_STORAGE_BUCKET: z.string().default("candidate-files"),
+  SUPABASE_STORAGE_BUCKET: z.string().default("cv"),
 
   // Auth
   BETTER_AUTH_SECRET: z.string().min(16, "BETTER_AUTH_SECRET must be at least 16 chars"),

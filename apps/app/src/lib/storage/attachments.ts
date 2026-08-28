@@ -64,20 +64,24 @@ export async function uploadCv(path: string, file: File) {
   return { ok: true as const };
 }
 
-export async function removeCv(path: string) {
-  await storage.storage.from(BUCKET).remove([path]).catch(() => undefined);
+export async function removeCv(path: string, bucket: string = BUCKET) {
+  await storage.storage.from(bucket).remove([path]).catch(() => undefined);
 }
 
 /**
  * Short-lived signed URL. The bucket is private, so this is the only way to
  * read a file — and it is minted only after the caller has been authorized.
  */
-export async function createCvSignedUrl(path: string, fileName: string) {
+export async function createCvSignedUrl(
+  path: string,
+  fileName: string,
+  bucket: string = BUCKET,
+) {
   const notConfigured = assertStorageConfigured();
   if (notConfigured) return { ok: false as const, error: notConfigured };
 
   const { data, error } = await storage.storage
-    .from(BUCKET)
+    .from(bucket)
     .createSignedUrl(path, 60, { download: fileName });
 
   if (error || !data?.signedUrl) {
