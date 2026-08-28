@@ -43,7 +43,11 @@ export async function GET(
     return NextResponse.json({ error: "Not allowed." }, { status: 403 });
   }
 
-  const signed = await createCvSignedUrl(attachment.storagePath, attachment.fileName);
+  const signed = await createCvSignedUrl(
+    attachment.storagePath,
+    attachment.fileName,
+    attachment.bucket,
+  );
   if (!signed.ok) {
     return NextResponse.json({ error: signed.error }, { status: 500 });
   }
