@@ -1,7 +1,6 @@
 import {
   BadgeCheck,
   BriefcaseBusiness,
-  CalendarClock,
   ChartNoAxesColumn,
   ClipboardList,
   LayoutDashboard,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Permission } from "@/lib/auth/permissions";
+import type { UserRole } from "@/lib/auth/roles";
 
 export type NavItem = {
   title: string;
@@ -18,6 +18,8 @@ export type NavItem = {
   icon: LucideIcon;
   /** Undefined means every signed-in role sees it. */
   permission?: Permission;
+  /** Keep role-specific workspaces out of unrelated sidebars. */
+  roles?: readonly UserRole[];
 };
 
 export type NavGroup = { label: string; items: NavItem[] };
@@ -27,7 +29,12 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Hiring",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { title: "My agenda", href: "/agenda", icon: CalendarClock },
+      {
+        title: "My applications",
+        href: "/my-applications",
+        icon: ClipboardList,
+        roles: ["interviewer"],
+      },
       {
         title: "Positions",
         href: "/positions",

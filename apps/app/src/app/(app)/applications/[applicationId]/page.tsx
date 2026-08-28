@@ -3,6 +3,7 @@ import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
 import { z } from "zod";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { ScorecardForm } from "@/components/applications/scorecard-form";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -19,6 +20,7 @@ import {
   getApplicationHeader,
   getApplicationTimeline,
 } from "@/lib/queries/activity";
+import { getInterviewerScorecardContext } from "@/lib/queries/stage-interviewers";
 
 export const metadata: Metadata = { title: "Application · Docket" };
 
@@ -37,7 +39,12 @@ export default async function ApplicationPage({
   // for assessing; the check is against the database, not the referrer.
   if (!(await canViewApplication(viewer, applicationId))) forbidden();
 
-  const entries = await getApplicationTimeline(applicationId, viewer);
+  const [entries, scorecardContext] = await Promise.all([
+    getApplicationTimeline(applicationId, viewer),
+    viewer.role === "interviewer"
+      ? getInterviewerScorecardContext(viewer.id, applicationId)
+      : Promise.resolve(null),
+  ]);
   const seesEverything = can(viewer.role, "scorecard:read-all");
 
   return (
@@ -66,6 +73,8 @@ export default async function ApplicationPage({
           {header.status.replace("_", " ")}
         </Badge>
       </div>
+
+      {scorecardContext ? <ScorecardForm context={scorecardContext} /> : null}
 
       <Card>
         <CardHeader>

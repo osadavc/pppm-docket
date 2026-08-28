@@ -28,7 +28,9 @@ export function AppSidebar({ user }: { user: SessionUser }) {
   const groups = NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter(
-      (item) => !item.permission || can(user.role, item.permission),
+      (item) =>
+        (!item.permission || can(user.role, item.permission)) &&
+        (!item.roles || item.roles.includes(user.role)),
     ),
   })).filter((group) => group.items.length > 0);
 

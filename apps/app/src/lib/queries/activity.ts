@@ -131,6 +131,8 @@ export async function getApplicationTimeline(
         recommendation: scorecards.recommendation,
         overallScore: scorecards.overallScore,
         strengths: scorecards.strengths,
+        concerns: scorecards.concerns,
+        notes: scorecards.notes,
         authorId: scorecards.authorId,
         authorName: user.name,
         stageName: positionStages.name,
@@ -207,7 +209,9 @@ export async function getApplicationTimeline(
       detail: [
         s.recommendation ? RECOMMENDATION_LABELS[s.recommendation] : null,
         s.overallScore ? `score ${s.overallScore}` : null,
-        s.strengths,
+        s.strengths ? `Strengths: ${s.strengths}` : null,
+        s.concerns ? `Concerns: ${s.concerns}` : null,
+        s.notes ? `Notes: ${s.notes}` : null,
       ]
         .filter(Boolean)
         .join(" · ") || null,
@@ -233,4 +237,3 @@ export async function getApplicationTimeline(
   // Newest first: the last thing that happened is what people look for.
   return entries.sort((a, b) => b.at.getTime() - a.at.getTime());
 }
-
