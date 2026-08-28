@@ -53,7 +53,7 @@ export default async function PipelinePage({
         </Alert>
       ) : null}
 
-      <PipelineBoard columns={board.columns} />
+      <PipelineBoard columns={board.columns} positionId={position.id} />
     </>
   );
 }

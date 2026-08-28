@@ -2,9 +2,18 @@ import Link from "next/link";
 import { PaceBadge } from "@/components/pipeline/pace-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import type { BoardColumn } from "@/lib/queries/pipeline";
+import {
+  PIPELINE_CARDS_PER_STAGE,
+  type BoardColumn,
+} from "@/lib/queries/pipeline";
 
-export function PipelineBoard({ columns }: { columns: BoardColumn[] }) {
+export function PipelineBoard({
+  columns,
+  positionId,
+}: {
+  columns: BoardColumn[];
+  positionId: string;
+}) {
   if (columns.length === 0) {
     return (
       <Card className="text-muted-foreground p-10 text-center text-sm">
@@ -53,6 +62,20 @@ export function PipelineBoard({ columns }: { columns: BoardColumn[] }) {
                 ))
               )}
             </div>
+
+            {column.count > PIPELINE_CARDS_PER_STAGE ? (
+              <div className="text-muted-foreground text-xs">
+                <p>
+                  Showing {PIPELINE_CARDS_PER_STAGE} of {column.count}
+                </p>
+                <Link
+                  href={`/candidates?positionId=${encodeURIComponent(positionId)}&stageId=${encodeURIComponent(column.stageId)}`}
+                  className="text-foreground font-medium underline underline-offset-4"
+                >
+                  View all candidates
+                </Link>
+              </div>
+            ) : null}
           </section>
         ))}
       </div>

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, lte, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   applications,
@@ -8,7 +8,14 @@ import {
   candidates,
   positionStages,
 } from "@/db/schema";
-import { paceFor, type Pace } from "@/lib/domain/pace";
+import { PACE_THRESHOLDS, paceFor, type Pace } from "@/lib/domain/pace";
+
+/**
+ * A board is an at-a-glance view. Keep its response bounded even when a stage
+ * contains thousands of candidates; the paginated candidate list exposes the
+ * complete stage when needed.
+ */
+export const PIPELINE_CARDS_PER_STAGE = 25;
 
 export type BoardCandidate = {
   applicationId: string;
@@ -38,8 +45,14 @@ export type BoardColumn = {
  * the figure shown is always "how long since they last moved".
  */
 export async function getPipelineBoard(positionId: string, now: Date = new Date()) {
+  // `paceFor` turns six whole elapsed days into red. Mirror that boundary in
+  // SQL so the alert is counted across the full stage, not only loaded cards.
+  const stalledSince = new Date(
+    now.getTime() - PACE_THRESHOLDS.redFrom * 24 * 60 * 60 * 1000,
+  );
+
   // Archived stages are off the live pipeline, so they get no column.
-  const stages = await db
+  const stagesQuery = db
     .select({
       id: positionStages.id,
       name: positionStages.name,
@@ -54,7 +67,11 @@ export async function getPipelineBoard(positionId: string, now: Date = new Date(
     )
     .orderBy(asc(positionStages.orderIndex));
 
-  const rows = await db
+  // Window functions compute the complete per-stage counts before the outer
+  // query applies its cap. This keeps both the HTML payload and React work
+  // bounded without making stage badges (or the stalled alert) inaccurate.
+  const rankedCandidates = db.$with("ranked_pipeline_candidates").as(
+    db
     .select({
       applicationId: applications.id,
       candidateId: candidates.id,
@@ -63,9 +80,28 @@ export async function getPipelineBoard(positionId: string, now: Date = new Date(
       appliedAt: applications.appliedAt,
       stageId: applications.currentStageId,
       enteredAt: applicationStages.enteredAt,
+      count: sql<number>`count(*) over (partition by ${applications.currentStageId})::int`.as(
+        "count",
+      ),
+      stalled: sql<number>`count(*) filter (where ${applicationStages.enteredAt} <= ${stalledSince}) over (partition by ${applications.currentStageId})::int`.as(
+        "stalled",
+      ),
+      rank: sql<number>`row_number() over (partition by ${applications.currentStageId} order by ${applicationStages.enteredAt} asc, ${applications.id} asc)::int`.as(
+        "rank",
+      ),
     })
     .from(applications)
     .innerJoin(candidates, eq(candidates.id, applications.candidateId))
+    // This also excludes candidates stranded on an archived stage, matching
+    // the old board's live-column semantics.
+    .innerJoin(
+      positionStages,
+      and(
+        eq(positionStages.id, applications.currentStageId),
+        eq(positionStages.positionId, positionId),
+        eq(positionStages.isArchived, false),
+      ),
+    )
     // Join to the row for the stage they are on right now, so enteredAt is
     // that stage's, not the first stage's.
     .leftJoin(
@@ -77,14 +113,41 @@ export async function getPipelineBoard(positionId: string, now: Date = new Date(
     )
     .where(
       and(eq(applications.positionId, positionId), eq(applications.status, "active")),
-    )
-    .orderBy(asc(applicationStages.enteredAt));
+    ),
+  );
 
-  const byStage = new Map<string, BoardCandidate[]>();
+  const candidatesQuery = db
+    .with(rankedCandidates)
+    .select({
+      applicationId: rankedCandidates.applicationId,
+      candidateId: rankedCandidates.candidateId,
+      fullName: rankedCandidates.fullName,
+      currentTitle: rankedCandidates.currentTitle,
+      appliedAt: rankedCandidates.appliedAt,
+      stageId: rankedCandidates.stageId,
+      enteredAt: rankedCandidates.enteredAt,
+      count: rankedCandidates.count,
+      stalled: rankedCandidates.stalled,
+      rank: rankedCandidates.rank,
+    })
+    .from(rankedCandidates)
+    .where(lte(rankedCandidates.rank, PIPELINE_CARDS_PER_STAGE))
+    .orderBy(asc(rankedCandidates.stageId), asc(rankedCandidates.rank));
+
+  const [stages, rows] = await Promise.all([stagesQuery, candidatesQuery]);
+
+  const byStage = new Map<
+    string,
+    { candidates: BoardCandidate[]; count: number; stalled: number }
+  >();
   for (const r of rows) {
     if (!r.stageId) continue;
-    const list = byStage.get(r.stageId) ?? [];
-    list.push({
+    const stage = byStage.get(r.stageId) ?? {
+      candidates: [],
+      count: Number(r.count),
+      stalled: Number(r.stalled),
+    };
+    stage.candidates.push({
       applicationId: r.applicationId,
       candidateId: r.candidateId,
       fullName: r.fullName,
@@ -93,20 +156,23 @@ export async function getPipelineBoard(positionId: string, now: Date = new Date(
       enteredAt: r.enteredAt,
       pace: paceFor(r.enteredAt, now),
     });
-    byStage.set(r.stageId, list);
+    byStage.set(r.stageId, stage);
   }
 
   const columns: BoardColumn[] = stages.map((s) => {
-    const list = byStage.get(s.id) ?? [];
-    return { stageId: s.id, name: s.name, orderIndex: s.orderIndex, count: list.length, candidates: list };
+    const stage = byStage.get(s.id);
+    return {
+      stageId: s.id,
+      name: s.name,
+      orderIndex: s.orderIndex,
+      count: stage?.count ?? 0,
+      candidates: stage?.candidates ?? [],
+    };
   });
 
   return {
     columns,
     total: columns.reduce((sum, c) => sum + c.count, 0),
-    stalled: columns.reduce(
-      (sum, c) => sum + c.candidates.filter((x) => x.pace.level === "red").length,
-      0,
-    ),
+    stalled: [...byStage.values()].reduce((sum, stage) => sum + stage.stalled, 0),
   };
 }
