@@ -34,13 +34,17 @@ export function StagePanelDialog({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string[]>(assigned.map((a) => a.userId));
+  const [selected, setSelected] = useState<string[]>(
+    assigned.map((a) => a.userId),
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
 
   function toggle(userId: string, checked: boolean) {
     setSelected((prev) =>
-      checked ? [...new Set([...prev, userId])] : prev.filter((id) => id !== userId),
+      checked
+        ? [...new Set([...prev, userId])]
+        : prev.filter((id) => id !== userId),
     );
   }
 
@@ -79,13 +83,19 @@ export function StagePanelDialog({
           : `${assigned.length} interviewer${assigned.length === 1 ? "" : "s"}`}
       </Button>
 
-      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setError(undefined); }}>
+      <Dialog
+        open={open}
+        onOpenChange={(o) => {
+          setOpen(o);
+          if (!o) setError(undefined);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Interviewers for “{stageName}”</DialogTitle>
             <DialogDescription>
-              They can see every candidate on this position, and this stage waits
-              on their feedback before a candidate advances.
+              They can see candidates while they are at this stage, and the
+              stage waits on their feedback before a candidate advances.
             </DialogDescription>
           </DialogHeader>
 
@@ -111,7 +121,9 @@ export function StagePanelDialog({
                       onCheckedChange={(c) => toggle(person.userId, c === true)}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{person.name}</span>
+                      <span className="block truncate font-medium">
+                        {person.name}
+                      </span>
                       <span className="text-muted-foreground block truncate text-xs">
                         {person.jobTitle || ROLE_LABELS[person.role]}
                       </span>
