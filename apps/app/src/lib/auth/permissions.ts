@@ -4,8 +4,8 @@ import type { UserRole } from "./roles";
  * The role matrix as code. This is a *declaration* of intent used to drive
  * navigation and page guards — it is not the only line of defence. Every Server
  * Action and Route Handler re-authorizes independently, and row-scoped access
- * (an interviewer only sees applications they were assigned to) is enforced in
- * the query layer via joins through `interview_participants`.
+ * (an interviewer only sees active applications currently at a stage assigned
+ * to them) is enforced in the query layer via `position_stage_interviewers`.
  */
 export const PERMISSIONS = {
   "position:view": ["hr", "management"],
