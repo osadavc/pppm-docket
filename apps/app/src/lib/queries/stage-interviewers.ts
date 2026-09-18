@@ -5,11 +5,14 @@ import { db } from "@/db/client";
 import {
   applications,
   applicationStages,
+  candidates,
+  positions,
   positionStageInterviewers,
   positionStages,
   scorecards,
   user,
 } from "@/db/schema";
+import { paceFor, type Pace } from "@/lib/domain/pace";
 import { isUserRole, type UserRole } from "@/lib/auth/roles";
 
 export type StagePanelMember = {
@@ -103,8 +106,8 @@ export async function listPositionIdsVisibleToInterviewer(userId: string) {
 }
 
 /**
- * Whether an interviewer may see a given application: true only if they sit on
- * the panel for at least one stage of that application's position.
+ * Whether an interviewer may see a given application: true only while the
+ * application is active and currently sits at a stage assigned to them.
  */
 export async function interviewerCanViewApplication(
   userId: string,
@@ -113,7 +116,86 @@ export async function interviewerCanViewApplication(
   const [row] = await db
     .select({ id: applications.id })
     .from(applications)
-    .innerJoin(positionStages, eq(positionStages.positionId, applications.positionId))
+    .innerJoin(
+      positionStageInterviewers,
+      and(
+        eq(
+          positionStageInterviewers.positionStageId,
+          applications.currentStageId,
+        ),
+        eq(positionStageInterviewers.userId, userId),
+      ),
+    )
+    .where(
+      and(
+        eq(applications.id, applicationId),
+        eq(applications.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(row);
+}
+
+export type AssignedCandidate = {
+  applicationId: string;
+  candidateId: string;
+  candidateName: string;
+  candidateTitle: string | null;
+  positionId: string;
+  positionTitle: string;
+  stageId: string;
+  stageName: string;
+  stageOrder: number;
+  requiresScorecard: boolean;
+  enteredAt: Date | null;
+  pace: Pace;
+  feedbackStatus: "not_started" | "draft" | "submitted";
+};
+
+export type AssignedStageQueue = {
+  key: string;
+  positionId: string;
+  positionTitle: string;
+  stageId: string;
+  stageName: string;
+  stageOrder: number;
+  candidates: AssignedCandidate[];
+};
+
+/**
+ * The viewer's live assessment queue.
+ *
+ * Assignment, active status and current-stage matching all live in this query.
+ * Callers never receive candidates from another stage and do not need to
+ * filter a broader application collection in memory.
+ */
+export async function listAssignedActiveCandidates(
+  userId: string,
+  now: Date = new Date(),
+): Promise<AssignedStageQueue[]> {
+  const rows = await db
+    .select({
+      applicationId: applications.id,
+      candidateId: candidates.id,
+      candidateName: candidates.fullName,
+      candidateTitle: candidates.currentTitle,
+      positionId: positions.id,
+      positionTitle: positions.title,
+      stageId: positionStages.id,
+      stageName: positionStages.name,
+      stageOrder: positionStages.orderIndex,
+      requiresScorecard: positionStages.requiresScorecard,
+      enteredAt: applicationStages.enteredAt,
+      feedbackStatus: scorecards.status,
+    })
+    .from(applications)
+    .innerJoin(candidates, eq(candidates.id, applications.candidateId))
+    .innerJoin(positions, eq(positions.id, applications.positionId))
+    .innerJoin(
+      positionStages,
+      eq(positionStages.id, applications.currentStageId),
+    )
     .innerJoin(
       positionStageInterviewers,
       and(
@@ -121,10 +203,62 @@ export async function interviewerCanViewApplication(
         eq(positionStageInterviewers.userId, userId),
       ),
     )
-    .where(eq(applications.id, applicationId))
-    .limit(1);
+    .innerJoin(
+      applicationStages,
+      and(
+        eq(applicationStages.applicationId, applications.id),
+        eq(applicationStages.positionStageId, positionStages.id),
+      ),
+    )
+    .leftJoin(
+      scorecards,
+      and(
+        eq(scorecards.applicationStageId, applicationStages.id),
+        eq(scorecards.authorId, userId),
+      ),
+    )
+    .where(eq(applications.status, "active"))
+    .orderBy(
+      asc(positions.title),
+      asc(positionStages.orderIndex),
+      asc(applicationStages.enteredAt),
+      asc(candidates.fullName),
+    );
 
-  return Boolean(row);
+  const groups = new Map<string, AssignedStageQueue>();
+
+  for (const row of rows) {
+    const key = `${row.positionId}:${row.stageId}`;
+    const group = groups.get(key) ?? {
+      key,
+      positionId: row.positionId,
+      positionTitle: row.positionTitle,
+      stageId: row.stageId,
+      stageName: row.stageName,
+      stageOrder: row.stageOrder,
+      candidates: [],
+    };
+
+    group.candidates.push({
+      applicationId: row.applicationId,
+      candidateId: row.candidateId,
+      candidateName: row.candidateName,
+      candidateTitle: row.candidateTitle,
+      positionId: row.positionId,
+      positionTitle: row.positionTitle,
+      stageId: row.stageId,
+      stageName: row.stageName,
+      stageOrder: row.stageOrder,
+      requiresScorecard: row.requiresScorecard,
+      enteredAt: row.enteredAt,
+      pace: paceFor(row.enteredAt, now),
+      feedbackStatus: row.feedbackStatus ?? "not_started",
+    });
+
+    groups.set(key, group);
+  }
+
+  return Array.from(groups.values());
 }
 
 /** Stage ids on a given application that this interviewer is responsible for. */

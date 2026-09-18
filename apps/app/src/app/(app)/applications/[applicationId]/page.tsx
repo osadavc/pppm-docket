@@ -27,12 +27,12 @@ export default async function ApplicationPage({
   const viewer = await requireUser();
   const { applicationId } = await params;
 
+  // Interviewers reach this page only for applications they are responsible
+  // for assessing right now; authorize before loading the application DTO.
+  if (!(await canViewApplication(viewer, applicationId))) forbidden();
+
   const header = await getApplicationHeader(applicationId);
   if (!header) notFound();
-
-  // Interviewers reach this page only for applications they are responsible
-  // for assessing; the check is against the database, not the referrer.
-  if (!(await canViewApplication(viewer, applicationId))) forbidden();
 
   const entries = await getApplicationTimeline(applicationId, viewer);
   const seesEverything = can(viewer.role, "scorecard:read-all");
