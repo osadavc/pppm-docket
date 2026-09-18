@@ -1,20 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  ArrowRight,
   CheckCircle2,
   CircleDashed,
   ClipboardCheck,
-  FilePenLine,
+  Download,
+  Eye,
+  MessageSquareText,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaceBadge } from "@/components/pipeline/pace-badge";
 import { requireUser } from "@/lib/auth/guards";
 import {
@@ -45,18 +42,10 @@ function FeedbackState({ candidate }: { candidate: AssignedCandidate }) {
     );
   }
 
-  if (candidate.feedbackStatus === "draft") {
-    return (
-      <Badge variant="secondary">
-        <FilePenLine data-icon="inline-start" /> Draft saved
-      </Badge>
-    );
-  }
-
   return (
-    <Badge variant={candidate.requiresScorecard ? "default" : "outline"}>
+    <Badge variant="secondary">
       <CircleDashed data-icon="inline-start" />
-      {candidate.requiresScorecard ? "Feedback needed" : "Ready to review"}
+      Awaiting feedback
     </Badge>
   );
 }
@@ -80,7 +69,9 @@ export default async function AgendaPage() {
         </div>
         {candidateCount > 0 ? (
           <p className="text-muted-foreground text-sm tabular-nums">
-            <span className="text-foreground font-medium">{candidateCount}</span>{" "}
+            <span className="text-foreground font-medium">
+              {candidateCount}
+            </span>{" "}
             {candidateCount === 1 ? "candidate" : "candidates"} across{" "}
             <span className="text-foreground font-medium">{queue.length}</span>{" "}
             {queue.length === 1 ? "stage" : "stages"}
@@ -98,7 +89,7 @@ export default async function AgendaPage() {
           </p>
         </Card>
       ) : (
-        <div className="grid items-start gap-4 xl:grid-cols-2">
+        <div className="grid items-start gap-4">
           {queue.map((stage) => (
             <Card key={stage.key} className="gap-0 py-0">
               <CardHeader className="border-b bg-muted/35 py-4">
@@ -114,38 +105,80 @@ export default async function AgendaPage() {
                   </CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="divide-y px-0">
-                {stage.candidates.map((candidate) => (
-                  <Link
-                    key={candidate.applicationId}
-                    href={`/applications/${candidate.applicationId}`}
-                    className="group flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  >
-                    <Avatar className="size-9">
-                      <AvatarFallback className="font-medium">
-                        {initials(candidate.candidateName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">
-                        {candidate.candidateName}
-                      </p>
-                      <p className="text-muted-foreground truncate text-xs">
-                        {candidate.candidateTitle ?? "Candidate"}
-                      </p>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5 sm:hidden">
+              <CardContent className="px-0">
+                <div className="text-muted-foreground hidden grid-cols-[minmax(0,1fr)_8rem_11rem_16rem] gap-3 border-b px-4 py-2 text-xs font-medium md:grid">
+                  <span>Candidate</span>
+                  <span>Time in stage</span>
+                  <span>Feedback</span>
+                  <span>Open</span>
+                </div>
+                <div className="divide-y">
+                  {stage.candidates.map((candidate) => (
+                    <div
+                      key={candidate.applicationId}
+                      className="group flex flex-col gap-3 px-4 py-3.5 transition-colors hover:bg-muted/30 md:grid md:grid-cols-[minmax(0,1fr)_8rem_11rem_16rem] md:items-center"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar className="size-9">
+                          <AvatarFallback className="font-medium">
+                            {initials(candidate.candidateName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            href={`/applications/${candidate.applicationId}`}
+                            className="truncate font-medium underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {candidate.candidateName}
+                          </Link>
+                          <p className="text-muted-foreground truncate text-xs">
+                            {candidate.candidateTitle ?? "Candidate"}
+                          </p>
+                          <p className="text-muted-foreground mt-0.5 truncate text-xs md:hidden">
+                            {candidate.positionTitle} · {candidate.stageName}
+                          </p>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5 md:hidden">
+                            <PaceBadge pace={candidate.pace} />
+                            <FeedbackState candidate={candidate} />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="hidden md:block">
                         <PaceBadge pace={candidate.pace} />
+                      </div>
+                      <div className="hidden md:block">
                         <FeedbackState candidate={candidate} />
                       </div>
+                      <div className="flex flex-wrap items-center gap-1.5 md:justify-end">
+                        <Button asChild size="sm" variant="ghost">
+                          <Link
+                            href={`/applications/${candidate.applicationId}`}
+                          >
+                            <Eye /> Application
+                          </Link>
+                        </Button>
+                        {candidate.cvAttachmentId ? (
+                          <Button asChild size="sm" variant="ghost">
+                            <a href={`/api/files/${candidate.cvAttachmentId}`}>
+                              <Download /> CV
+                            </a>
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="ghost" disabled>
+                            <Download /> No CV
+                          </Button>
+                        )}
+                        <Button asChild size="sm" variant="outline">
+                          <Link
+                            href={`/applications/${candidate.applicationId}/feedback`}
+                          >
+                            <MessageSquareText /> Feedback
+                          </Link>
+                        </Button>
+                      </div>
                     </div>
-                    <div className="hidden items-center gap-2 sm:flex">
-                      <PaceBadge pace={candidate.pace} />
-                      <FeedbackState candidate={candidate} />
-                    </div>
-                    <ArrowRight className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
-                    <span className="sr-only">Open application</span>
-                  </Link>
-                ))}
+                  ))}
+                </div>
               </CardContent>
             </Card>
           ))}
