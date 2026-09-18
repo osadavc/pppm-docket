@@ -1,10 +1,11 @@
 import "server-only";
 
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   applications,
   applicationStages,
+  attachments,
   candidates,
   positions,
   positionStageInterviewers,
@@ -62,7 +63,9 @@ export async function getStagePanels(positionId: string) {
 }
 
 /** Everyone who could sit on a panel. */
-export async function listAssignableInterviewers(): Promise<StagePanelMember[]> {
+export async function listAssignableInterviewers(): Promise<
+  StagePanelMember[]
+> {
   const rows = await db
     .select({
       id: user.id,
@@ -147,10 +150,11 @@ export type AssignedCandidate = {
   stageId: string;
   stageName: string;
   stageOrder: number;
-  requiresScorecard: boolean;
   enteredAt: Date | null;
   pace: Pace;
-  feedbackStatus: "not_started" | "draft" | "submitted";
+  feedbackStatus: "awaiting" | "submitted";
+  /** Opaque database id only; the queue never receives a storage path or URL. */
+  cvAttachmentId: string | null;
 };
 
 export type AssignedStageQueue = {
@@ -185,9 +189,8 @@ export async function listAssignedActiveCandidates(
       stageId: positionStages.id,
       stageName: positionStages.name,
       stageOrder: positionStages.orderIndex,
-      requiresScorecard: positionStages.requiresScorecard,
       enteredAt: applicationStages.enteredAt,
-      feedbackStatus: scorecards.status,
+      submittedScorecardId: scorecards.id,
     })
     .from(applications)
     .innerJoin(candidates, eq(candidates.id, applications.candidateId))
@@ -215,6 +218,7 @@ export async function listAssignedActiveCandidates(
       and(
         eq(scorecards.applicationStageId, applicationStages.id),
         eq(scorecards.authorId, userId),
+        eq(scorecards.status, "submitted"),
       ),
     )
     .where(eq(applications.status, "active"))
@@ -224,6 +228,33 @@ export async function listAssignedActiveCandidates(
       asc(applicationStages.enteredAt),
       asc(candidates.fullName),
     );
+
+  const cvByApplication = new Map<string, string>();
+  if (rows.length > 0) {
+    const cvRows = await db
+      .select({
+        id: attachments.id,
+        applicationId: attachments.applicationId,
+      })
+      .from(attachments)
+      .where(
+        and(
+          inArray(
+            attachments.applicationId,
+            rows.map((row) => row.applicationId),
+          ),
+          eq(attachments.kind, "cv"),
+        ),
+      )
+      .orderBy(desc(attachments.createdAt));
+
+    // Rows are newest first. Keep the first CV for each application.
+    for (const cv of cvRows) {
+      if (cv.applicationId && !cvByApplication.has(cv.applicationId)) {
+        cvByApplication.set(cv.applicationId, cv.id);
+      }
+    }
+  }
 
   const groups = new Map<string, AssignedStageQueue>();
 
@@ -249,10 +280,10 @@ export async function listAssignedActiveCandidates(
       stageId: row.stageId,
       stageName: row.stageName,
       stageOrder: row.stageOrder,
-      requiresScorecard: row.requiresScorecard,
       enteredAt: row.enteredAt,
       pace: paceFor(row.enteredAt, now),
-      feedbackStatus: row.feedbackStatus ?? "not_started",
+      feedbackStatus: row.submittedScorecardId ? "submitted" : "awaiting",
+      cvAttachmentId: cvByApplication.get(row.applicationId) ?? null,
     });
 
     groups.set(key, group);
@@ -272,7 +303,10 @@ export async function assignedStageIdsForInterviewer(
     .innerJoin(
       positionStageInterviewers,
       and(
-        eq(positionStageInterviewers.positionStageId, applicationStages.positionStageId),
+        eq(
+          positionStageInterviewers.positionStageId,
+          applicationStages.positionStageId,
+        ),
         eq(positionStageInterviewers.userId, userId),
       ),
     )
@@ -280,7 +314,6 @@ export async function assignedStageIdsForInterviewer(
 
   return rows.map((r) => r.applicationStageId);
 }
-
 
 export type StageOccupancy = {
   stageId: string;
@@ -307,15 +340,24 @@ export async function getStageOccupancy(positionId: string) {
     .select({ stageId: applications.currentStageId, n: count() })
     .from(applications)
     .where(
-      and(eq(applications.positionId, positionId), eq(applications.status, "active")),
+      and(
+        eq(applications.positionId, positionId),
+        eq(applications.status, "active"),
+      ),
     )
     .groupBy(applications.currentStageId);
 
   const feedback = await db
     .select({ stageId: applicationStages.positionStageId, n: count() })
     .from(scorecards)
-    .innerJoin(applicationStages, eq(applicationStages.id, scorecards.applicationStageId))
-    .innerJoin(positionStages, eq(positionStages.id, applicationStages.positionStageId))
+    .innerJoin(
+      applicationStages,
+      eq(applicationStages.id, scorecards.applicationStageId),
+    )
+    .innerJoin(
+      positionStages,
+      eq(positionStages.id, applicationStages.positionStageId),
+    )
     .where(
       and(
         eq(positionStages.positionId, positionId),
