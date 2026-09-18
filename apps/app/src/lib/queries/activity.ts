@@ -46,9 +46,9 @@ export type ApplicationHeader = {
 /**
  * Whether this person may open an application at all.
  *
- * HR and management see every application. An interviewer sees only the ones
- * they sit on a stage panel for — checked against the database, not inferred
- * from how they arrived at the page.
+ * HR and management see every application. An interviewer sees only active
+ * applications currently at a stage assigned to them — checked against the
+ * database, not inferred from how they arrived at the page.
  */
 export async function canViewApplication(
   viewer: SessionUser,
@@ -233,4 +233,3 @@ export async function getApplicationTimeline(
   // Newest first: the last thing that happened is what people look for.
   return entries.sort((a, b) => b.at.getTime() - a.at.getTime());
 }
-
