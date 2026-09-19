@@ -4,15 +4,12 @@ import { and, asc, count, eq, gt } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   applications,
-  applicationStages,
   candidates,
   positions,
-  positionStageInterviewers,
   positionStages,
-  scorecards,
-  user,
 } from "@/db/schema";
 import { evaluateStageGate, type StageGate } from "@/lib/domain/advancement";
+import { listEligiblePanelFeedback } from "@/lib/queries/stage-interviewers";
 import { REJECTION_REASON_LABELS } from "@/lib/validation/application";
 
 export type AdvanceContext = {
@@ -56,76 +53,51 @@ export async function getAdvanceContext(
     .from(applications)
     .innerJoin(candidates, eq(candidates.id, applications.candidateId))
     .innerJoin(positions, eq(positions.id, applications.positionId))
-    .leftJoin(positionStages, eq(positionStages.id, applications.currentStageId))
+    .leftJoin(
+      positionStages,
+      eq(positionStages.id, applications.currentStageId),
+    )
     .where(eq(applications.id, applicationId));
 
   if (!row) return null;
 
   // The next stage is the next one still on the live pipeline — archived
   // stages are skipped over rather than advanced into.
-  const nextStage = row.stageOrder === null
-    ? null
-    : (
-        await db
-          .select({
-            id: positionStages.id,
-            name: positionStages.name,
-            orderIndex: positionStages.orderIndex,
-          })
-          .from(positionStages)
-          .where(
-            and(
-              eq(positionStages.positionId, row.positionId),
-              eq(positionStages.isArchived, false),
-              gt(positionStages.orderIndex, row.stageOrder),
-            ),
-          )
-          .orderBy(asc(positionStages.orderIndex))
-          .limit(1)
-      )[0] ?? null;
+  const nextStage =
+    row.stageOrder === null
+      ? null
+      : ((
+          await db
+            .select({
+              id: positionStages.id,
+              name: positionStages.name,
+              orderIndex: positionStages.orderIndex,
+            })
+            .from(positionStages)
+            .where(
+              and(
+                eq(positionStages.positionId, row.positionId),
+                eq(positionStages.isArchived, false),
+                gt(positionStages.orderIndex, row.stageOrder),
+              ),
+            )
+            .orderBy(asc(positionStages.orderIndex))
+            .limit(1)
+        )[0] ?? null);
 
   let assignedInterviewerCount = 0;
   let submittedScorecardCount = 0;
   let outstandingInterviewers: string[] = [];
 
   if (row.stageId) {
-    const [assigned] = await db
-      .select({ n: count() })
-      .from(positionStageInterviewers)
-      .where(eq(positionStageInterviewers.positionStageId, row.stageId));
-    assignedInterviewerCount = assigned?.n ?? 0;
-
-    const [appStage] = await db
-      .select({ id: applicationStages.id })
-      .from(applicationStages)
-      .where(
-        and(
-          eq(applicationStages.applicationId, applicationId),
-          eq(applicationStages.positionStageId, row.stageId),
-        ),
-      );
-
-    if (appStage) {
-      const submitted = await db
-        .select({ authorId: scorecards.authorId })
-        .from(scorecards)
-        .where(
-          and(
-            eq(scorecards.applicationStageId, appStage.id),
-            eq(scorecards.status, "submitted"),
-          ),
-        );
-      submittedScorecardCount = submitted.length;
-
-      const done = new Set(submitted.map((s) => s.authorId));
-      const panel = await db
-        .select({ id: user.id, name: user.name })
-        .from(positionStageInterviewers)
-        .innerJoin(user, eq(user.id, positionStageInterviewers.userId))
-        .where(eq(positionStageInterviewers.positionStageId, row.stageId))
-        .orderBy(asc(user.name));
-      outstandingInterviewers = panel.filter((p) => !done.has(p.id)).map((p) => p.name);
-    }
+    const panel = await listEligiblePanelFeedback(applicationId, row.stageId);
+    assignedInterviewerCount = panel.length;
+    submittedScorecardCount = panel.filter(
+      (member) => member.submittedScorecardId !== null,
+    ).length;
+    outstandingInterviewers = panel
+      .filter((member) => member.submittedScorecardId === null)
+      .map((member) => member.name);
   }
 
   const gate = evaluateStageGate({

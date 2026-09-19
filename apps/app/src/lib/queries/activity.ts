@@ -1,6 +1,7 @@
 import "server-only";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, exists } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import {
   activityLog,
@@ -54,6 +55,7 @@ export async function canViewApplication(
   viewer: SessionUser,
   applicationId: string,
 ) {
+  if (!viewer.isActive) return false;
   if (can(viewer.role, "application:view")) return true;
   return interviewerCanViewApplication(viewer.id, applicationId);
 }
@@ -76,7 +78,10 @@ export async function getApplicationHeader(
     .from(applications)
     .innerJoin(candidates, eq(candidates.id, applications.candidateId))
     .innerJoin(positions, eq(positions.id, applications.positionId))
-    .leftJoin(positionStages, eq(positionStages.id, applications.currentStageId))
+    .leftJoin(
+      positionStages,
+      eq(positionStages.id, applications.currentStageId),
+    )
     .where(eq(applications.id, applicationId));
   return row ?? null;
 }
@@ -88,12 +93,31 @@ const RECOMMENDATION_LABELS: Record<string, string> = {
   strong_yes: "Strong yes",
 };
 
+function activityDetail(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const values = metadata as Record<string, unknown>;
+  const note = typeof values.note === "string" ? values.note.trim() : "";
+  const overrideReason =
+    typeof values.overrideReason === "string"
+      ? values.overrideReason.trim()
+      : "";
+
+  return (
+    [note || null, overrideReason ? `Gate override: ${overrideReason}` : null]
+      .filter(Boolean)
+      .join("\n") || null
+  );
+}
+
 /**
  * The merged history of an application: stage transitions, interview feedback
  * and sent email, in one order.
  *
- * Visibility is applied while building the feed rather than by hiding rows in
- * the UI. For an interviewer that means three separate rules:
+ * Visibility is applied at the server data boundary rather than by hiding rows
+ * in the UI. For an interviewer that means three separate rules:
  *
  *  - stage transitions are shown — they need the context of where the
  *    candidate has been;
@@ -107,7 +131,13 @@ export async function getApplicationTimeline(
   applicationId: string,
   viewer: SessionUser,
 ): Promise<TimelineEntry[]> {
+  // This DAL function may be reused outside the guarded application page.
+  // Re-check row-level access here so no server caller can turn it into an
+  // alternate path to application history or peer feedback.
+  if (!(await canViewApplication(viewer, applicationId))) return [];
+
   const seesEverything = can(viewer.role, "scorecard:read-all");
+  const viewerScorecards = alias(scorecards, "viewer_scorecards");
 
   const [logRows, scorecardRows, emailRows] = await Promise.all([
     db
@@ -117,6 +147,7 @@ export async function getApplicationTimeline(
         action: activityLog.action,
         summary: activityLog.summary,
         metadata: activityLog.metadata,
+        actorId: activityLog.actorId,
         actorName: user.name,
       })
       .from(activityLog)
@@ -128,6 +159,7 @@ export async function getApplicationTimeline(
       .select({
         id: scorecards.id,
         submittedAt: scorecards.submittedAt,
+        updatedAt: scorecards.updatedAt,
         recommendation: scorecards.recommendation,
         overallScore: scorecards.overallScore,
         strengths: scorecards.strengths,
@@ -150,6 +182,24 @@ export async function getApplicationTimeline(
         and(
           eq(scorecards.applicationId, applicationId),
           eq(scorecards.status, "submitted"),
+          seesEverything
+            ? undefined
+            : exists(
+                db
+                  .select({ id: viewerScorecards.id })
+                  .from(viewerScorecards)
+                  .where(
+                    and(
+                      eq(viewerScorecards.applicationId, applicationId),
+                      eq(
+                        viewerScorecards.applicationStageId,
+                        scorecards.applicationStageId,
+                      ),
+                      eq(viewerScorecards.authorId, viewer.id),
+                      eq(viewerScorecards.status, "submitted"),
+                    ),
+                  ),
+              ),
         ),
       ),
 
@@ -168,49 +218,63 @@ export async function getApplicationTimeline(
       .where(eq(notifications.applicationId, applicationId)),
   ]);
 
-  // Which stages has this viewer already given their own verdict on? Until
-  // they have, their peers' verdicts for that stage stay sealed.
-  const ownSubmittedStages = new Set(
-    scorecardRows
-      .filter((s) => s.authorId === viewer.id)
-      .map((s) => s.applicationStageId),
+  const entries: TimelineEntry[] = [];
+  const visibleFeedbackStages = new Set(
+    scorecardRows.map((scorecard) => scorecard.applicationStageId),
   );
 
-  const entries: TimelineEntry[] = [];
-
   for (const r of logRows) {
+    if (!seesEverything && r.action === "scorecard.revised") {
+      const metadata =
+        r.metadata &&
+        typeof r.metadata === "object" &&
+        !Array.isArray(r.metadata)
+          ? (r.metadata as Record<string, unknown>)
+          : null;
+      const applicationStageId = metadata?.applicationStageId;
+      const isOwn = r.actorId === viewer.id;
+      if (
+        !isOwn &&
+        (typeof applicationStageId !== "string" ||
+          !visibleFeedbackStages.has(applicationStageId))
+      ) {
+        continue;
+      }
+    }
+
     entries.push({
       id: `log-${r.id}`,
-      kind: "stage",
+      kind: r.action.startsWith("scorecard.") ? "feedback" : "stage",
       at: r.at,
       actorName: r.actorName ?? null,
       title: r.summary,
-      detail:
-        (r.metadata as Record<string, unknown> | null)?.note as string | null ??
-        null,
-      meta: seesEverything ? (r.metadata as Record<string, unknown> | null) : null,
+      detail: activityDetail(r.metadata),
+      meta: seesEverything
+        ? (r.metadata as Record<string, unknown> | null)
+        : null,
     });
   }
 
   for (const s of scorecardRows) {
     const isOwn = s.authorId === viewer.id;
-    const visible =
-      seesEverything || isOwn || ownSubmittedStages.has(s.applicationStageId);
-    if (!visible) continue;
 
     entries.push({
       id: `scorecard-${s.id}`,
       kind: "feedback",
-      at: s.submittedAt ?? new Date(0),
+      // Submitted rows written by the action always have submittedAt. The
+      // update time keeps malformed legacy data chronologically useful rather
+      // than rendering it at the Unix epoch.
+      at: s.submittedAt ?? s.updatedAt,
       actorName: s.authorName,
       title: `${isOwn ? "You" : s.authorName} submitted feedback for “${s.stageName}”`,
-      detail: [
-        s.recommendation ? RECOMMENDATION_LABELS[s.recommendation] : null,
-        s.overallScore ? `score ${s.overallScore}` : null,
-        s.strengths,
-      ]
-        .filter(Boolean)
-        .join(" · ") || null,
+      detail:
+        [
+          s.recommendation ? RECOMMENDATION_LABELS[s.recommendation] : null,
+          s.overallScore ? `score ${s.overallScore}` : null,
+          s.strengths,
+        ]
+          .filter(Boolean)
+          .join(" · ") || null,
       meta: null,
     });
   }

@@ -50,7 +50,13 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
   useEffect(() => {
     if (!state?.ok) return;
     toast.success(
-      state.data.status === "submitted" ? "Feedback submitted" : "Draft saved",
+      !state.data.changed
+        ? "No feedback changes to save"
+        : state.data.revised
+          ? "Feedback revision saved"
+          : state.data.status === "submitted"
+            ? "Feedback submitted"
+            : "Draft saved",
     );
     router.refresh();
   }, [router, state]);
@@ -58,6 +64,11 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
   return (
     <form action={formAction} className="space-y-5">
       <input type="hidden" name="applicationId" value={context.applicationId} />
+      <input
+        type="hidden"
+        name="baseRevision"
+        value={context.scorecard?.revisionNumber ?? 0}
+      />
 
       {state && !state.ok ? (
         <Alert variant="destructive">
@@ -69,15 +80,13 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
         <Alert>
           <CheckCircle2 />
           <AlertDescription>
-            This scorecard has been submitted. Submitted feedback is read-only.
+            This scorecard has been submitted. Any changes are saved as an
+            audited revision.
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <fieldset
-        disabled={submitted || pending}
-        className="space-y-5 disabled:opacity-75"
-      >
+      <fieldset disabled={pending} className="space-y-5 disabled:opacity-75">
         <Card>
           <CardHeader>
             <CardTitle>Criterion ratings</CardTitle>
@@ -278,7 +287,16 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
         </Card>
       </fieldset>
 
-      {!submitted ? (
+      {submitted ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="submit" name="intent" value="revise" disabled={pending}>
+            <Save /> {pending ? "Saving…" : "Save revision"}
+          </Button>
+          <p className="text-muted-foreground text-xs">
+            The previous values and ratings remain in the audit history.
+          </p>
+        </div>
+      ) : (
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" name="intent" value="submit" disabled={pending}>
             <CheckCircle2 /> {pending ? "Saving…" : "Submit feedback"}
@@ -293,10 +311,11 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
             <Save /> Save draft
           </Button>
           <p className="text-muted-foreground text-xs">
-            Submitted feedback cannot be edited.
+            Submitting shares this feedback under Docket&apos;s visibility
+            rules.
           </p>
         </div>
-      ) : null}
+      )}
     </form>
   );
 }

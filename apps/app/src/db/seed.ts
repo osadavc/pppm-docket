@@ -67,6 +67,8 @@ const TRUNCATE_TABLES = [
   "notifications",
   "activity_log",
   "attachments",
+  "scorecard_revision_ratings",
+  "scorecard_revisions",
   "scorecard_ratings",
   "scorecards",
   "interview_participants",
@@ -89,7 +91,9 @@ const TRUNCATE_TABLES = [
 async function reset() {
   console.log("→ resetting all tables");
   await db.execute(
-    sql.raw(`truncate table ${TRUNCATE_TABLES.join(", ")} restart identity cascade`),
+    sql.raw(
+      `truncate table ${TRUNCATE_TABLES.join(", ")} restart identity cascade`,
+    ),
   );
 }
 

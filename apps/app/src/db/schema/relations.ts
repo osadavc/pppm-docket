@@ -12,7 +12,12 @@ import {
   scorecardCriteria,
 } from "./pipeline";
 import { positions } from "./positions";
-import { scorecardRatings, scorecards } from "./scorecards";
+import {
+  scorecardRatings,
+  scorecardRevisionRatings,
+  scorecardRevisions,
+  scorecards,
+} from "./scorecards";
 import {
   stageTemplateCriteria,
   stageTemplateSets,
@@ -24,6 +29,7 @@ export const userDomainRelations = relations(user, ({ many }) => ({
   positionsManaged: many(positions, { relationName: "positionHiringManager" }),
   interviewParticipations: many(interviewParticipants),
   scorecardsAuthored: many(scorecards),
+  scorecardRevisionsAuthored: many(scorecardRevisions),
   activity: many(activityLog),
 }));
 
@@ -86,15 +92,18 @@ export const stageTemplateCriteriaRelations = relations(
   }),
 );
 
-export const positionStagesRelations = relations(positionStages, ({ one, many }) => ({
-  position: one(positions, {
-    fields: [positionStages.positionId],
-    references: [positions.id],
+export const positionStagesRelations = relations(
+  positionStages,
+  ({ one, many }) => ({
+    position: one(positions, {
+      fields: [positionStages.positionId],
+      references: [positions.id],
+    }),
+    criteria: many(scorecardCriteria),
+    applicationStages: many(applicationStages),
+    interviewers: many(positionStageInterviewers),
   }),
-  criteria: many(scorecardCriteria),
-  applicationStages: many(applicationStages),
-  interviewers: many(positionStageInterviewers),
-}));
+);
 
 export const positionStageInterviewersRelations = relations(
   positionStageInterviewers,
@@ -118,6 +127,7 @@ export const scorecardCriteriaRelations = relations(
       references: [positionStages.id],
     }),
     ratings: many(scorecardRatings),
+    revisionRatings: many(scorecardRevisionRatings),
   }),
 );
 
@@ -136,35 +146,38 @@ export const candidatesRelations = relations(candidates, ({ one, many }) => ({
   attachments: many(attachments),
 }));
 
-export const applicationsRelations = relations(applications, ({ one, many }) => ({
-  candidate: one(candidates, {
-    fields: [applications.candidateId],
-    references: [candidates.id],
+export const applicationsRelations = relations(
+  applications,
+  ({ one, many }) => ({
+    candidate: one(candidates, {
+      fields: [applications.candidateId],
+      references: [candidates.id],
+    }),
+    position: one(positions, {
+      fields: [applications.positionId],
+      references: [positions.id],
+    }),
+    currentStage: one(positionStages, {
+      fields: [applications.currentStageId],
+      references: [positionStages.id],
+    }),
+    decisionBy: one(user, {
+      fields: [applications.decisionById],
+      references: [user.id],
+      relationName: "applicationDecisionBy",
+    }),
+    createdBy: one(user, {
+      fields: [applications.createdById],
+      references: [user.id],
+      relationName: "applicationCreatedBy",
+    }),
+    stages: many(applicationStages),
+    interviews: many(interviews),
+    scorecards: many(scorecards),
+    attachments: many(attachments),
+    activity: many(activityLog),
   }),
-  position: one(positions, {
-    fields: [applications.positionId],
-    references: [positions.id],
-  }),
-  currentStage: one(positionStages, {
-    fields: [applications.currentStageId],
-    references: [positionStages.id],
-  }),
-  decisionBy: one(user, {
-    fields: [applications.decisionById],
-    references: [user.id],
-    relationName: "applicationDecisionBy",
-  }),
-  createdBy: one(user, {
-    fields: [applications.createdById],
-    references: [user.id],
-    relationName: "applicationCreatedBy",
-  }),
-  stages: many(applicationStages),
-  interviews: many(interviews),
-  scorecards: many(scorecards),
-  attachments: many(attachments),
-  activity: many(activityLog),
-}));
+);
 
 export const applicationStagesRelations = relations(
   applicationStages,
@@ -235,18 +248,51 @@ export const scorecardsRelations = relations(scorecards, ({ one, many }) => ({
     references: [user.id],
   }),
   ratings: many(scorecardRatings),
+  revisions: many(scorecardRevisions),
 }));
 
-export const scorecardRatingsRelations = relations(scorecardRatings, ({ one }) => ({
-  scorecard: one(scorecards, {
-    fields: [scorecardRatings.scorecardId],
-    references: [scorecards.id],
+export const scorecardRatingsRelations = relations(
+  scorecardRatings,
+  ({ one }) => ({
+    scorecard: one(scorecards, {
+      fields: [scorecardRatings.scorecardId],
+      references: [scorecards.id],
+    }),
+    criterion: one(scorecardCriteria, {
+      fields: [scorecardRatings.criterionId],
+      references: [scorecardCriteria.id],
+    }),
   }),
-  criterion: one(scorecardCriteria, {
-    fields: [scorecardRatings.criterionId],
-    references: [scorecardCriteria.id],
+);
+
+export const scorecardRevisionsRelations = relations(
+  scorecardRevisions,
+  ({ one, many }) => ({
+    scorecard: one(scorecards, {
+      fields: [scorecardRevisions.scorecardId],
+      references: [scorecards.id],
+    }),
+    author: one(user, {
+      fields: [scorecardRevisions.authorId],
+      references: [user.id],
+    }),
+    ratings: many(scorecardRevisionRatings),
   }),
-}));
+);
+
+export const scorecardRevisionRatingsRelations = relations(
+  scorecardRevisionRatings,
+  ({ one }) => ({
+    revision: one(scorecardRevisions, {
+      fields: [scorecardRevisionRatings.revisionId],
+      references: [scorecardRevisions.id],
+    }),
+    criterion: one(scorecardCriteria, {
+      fields: [scorecardRevisionRatings.criterionId],
+      references: [scorecardCriteria.id],
+    }),
+  }),
+);
 
 export const attachmentsRelations = relations(attachments, ({ one }) => ({
   candidate: one(candidates, {
