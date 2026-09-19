@@ -25,6 +25,55 @@ export type StagePanelMember = {
   jobTitle: string | null;
 };
 
+export type EligiblePanelFeedback = {
+  userId: string;
+  name: string;
+  submittedScorecardId: string | null;
+};
+
+/**
+ * The current, active panel and each member's submitted feedback for one
+ * application-stage. Returning one row per assignment gives the advancement
+ * gate and its outstanding-interviewer list a single eligibility definition.
+ */
+export async function listEligiblePanelFeedback(
+  applicationId: string,
+  positionStageId: string,
+): Promise<EligiblePanelFeedback[]> {
+  return db
+    .select({
+      userId: positionStageInterviewers.userId,
+      name: user.name,
+      submittedScorecardId: scorecards.id,
+    })
+    .from(positionStageInterviewers)
+    .innerJoin(
+      user,
+      and(
+        eq(user.id, positionStageInterviewers.userId),
+        eq(user.isActive, true),
+      ),
+    )
+    .leftJoin(
+      applicationStages,
+      and(
+        eq(applicationStages.applicationId, applicationId),
+        eq(applicationStages.positionStageId, positionStageId),
+      ),
+    )
+    .leftJoin(
+      scorecards,
+      and(
+        eq(scorecards.applicationId, applicationId),
+        eq(scorecards.applicationStageId, applicationStages.id),
+        eq(scorecards.authorId, positionStageInterviewers.userId),
+        eq(scorecards.status, "submitted"),
+      ),
+    )
+    .where(eq(positionStageInterviewers.positionStageId, positionStageId))
+    .orderBy(asc(user.name));
+}
+
 /** The standing panel for every stage of a position, keyed by stage id. */
 export async function getStagePanels(positionId: string) {
   const rows = await db

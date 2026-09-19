@@ -16,7 +16,8 @@ export const RECOMMENDATION_LABELS = {
 
 export const scorecardSubmissionSchema = z.object({
   applicationId: z.uuid(),
-  intent: z.enum(["draft", "submit"]),
+  intent: z.enum(["draft", "submit", "revise"]),
+  baseRevision: z.coerce.number().int().min(0),
   recommendation: z.enum(recommendationValues).nullable(),
   strengths: z.string().trim().max(5000, "Strengths are too long"),
   concerns: z.string().trim().max(5000, "Concerns are too long"),
