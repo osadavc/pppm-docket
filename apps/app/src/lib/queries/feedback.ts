@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   applications,
@@ -11,6 +11,7 @@ import {
   positionStages,
   scorecardCriteria,
   scorecardRatings,
+  scorecardRevisions,
   scorecards,
 } from "@/db/schema";
 import type { Recommendation } from "@/db/schema/enums";
@@ -43,6 +44,7 @@ export type FeedbackContext = {
     concerns: string;
     notes: string;
     submittedAt: Date | null;
+    revisionNumber: number;
   } | null;
   criteria: FeedbackCriterion[];
 };
@@ -115,6 +117,15 @@ export async function getFeedbackContext(
 
   if (!row) return null;
 
+  const [latestRevision] = row.scorecardId
+    ? await db
+        .select({ revisionNumber: scorecardRevisions.revisionNumber })
+        .from(scorecardRevisions)
+        .where(eq(scorecardRevisions.scorecardId, row.scorecardId))
+        .orderBy(desc(scorecardRevisions.revisionNumber))
+        .limit(1)
+    : [];
+
   const criteriaRows = await db
     .select({
       id: scorecardCriteria.id,
@@ -165,6 +176,7 @@ export async function getFeedbackContext(
           concerns: row.concerns ?? "",
           notes: row.notes ?? "",
           submittedAt: row.submittedAt,
+          revisionNumber: latestRevision?.revisionNumber ?? 0,
         }
       : null,
     criteria: criteriaRows.map((criterion) => ({

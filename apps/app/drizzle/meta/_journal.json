@@ -71,6 +71,13 @@
       "when": 1787581667575,
       "tag": "0009_modern_ben_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789805663875,
+      "tag": "0010_scorecard_revisions",
+      "breakpoints": true
     }
   ]
 }

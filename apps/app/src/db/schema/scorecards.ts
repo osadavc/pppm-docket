@@ -83,6 +83,67 @@ export const scorecardRatings = pgTable(
   ],
 );
 
+/**
+ * Immutable snapshots of the original submission and every accepted edit.
+ * The live scorecard remains the efficient current view; this table is the
+ * audit source of truth and gives concurrent edits a monotonic version.
+ */
+export const scorecardRevisions = pgTable(
+  "scorecard_revisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    scorecardId: uuid("scorecard_id")
+      .notNull()
+      .references(() => scorecards.id, { onDelete: "cascade" }),
+    revisionNumber: integer("revision_number").notNull(),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    recommendation: recommendation("recommendation"),
+    overallScore: numeric("overall_score", { precision: 4, scale: 2 }),
+    strengths: text("strengths"),
+    concerns: text("concerns"),
+    notes: text("notes"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("scorecard_revisions_number_unique").on(
+      t.scorecardId,
+      t.revisionNumber,
+    ),
+    check("scorecard_revisions_number_check", sql`${t.revisionNumber} > 0`),
+  ],
+);
+
+export const scorecardRevisionRatings = pgTable(
+  "scorecard_revision_ratings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    revisionId: uuid("revision_id")
+      .notNull()
+      .references(() => scorecardRevisions.id, { onDelete: "cascade" }),
+    criterionId: uuid("criterion_id")
+      .notNull()
+      .references(() => scorecardCriteria.id, { onDelete: "restrict" }),
+    rating: integer("rating").notNull(),
+    comment: text("comment"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("scorecard_revision_ratings_unique").on(
+      t.revisionId,
+      t.criterionId,
+    ),
+    check(
+      "scorecard_revision_ratings_range_check",
+      sql`${t.rating} between 1 and 5`,
+    ),
+  ],
+);
+
 export type Scorecard = typeof scorecards.$inferSelect;
 export type NewScorecard = typeof scorecards.$inferInsert;
 export type ScorecardRating = typeof scorecardRatings.$inferSelect;
+export type ScorecardRevision = typeof scorecardRevisions.$inferSelect;
+export type ScorecardRevisionRating =
+  typeof scorecardRevisionRatings.$inferSelect;
