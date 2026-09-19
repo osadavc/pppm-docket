@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { scorecardRatings, scorecards } from "@/db/schema";
 import { requireUser } from "@/lib/auth/guards";
+import { calculateWeightedScore } from "@/lib/domain/scorecard";
 import { getFeedbackContext } from "@/lib/queries/feedback";
 import {
   recommendationValues,
@@ -20,6 +21,25 @@ export type SaveScorecardResult = ActionResult<{
 function text(formData: FormData, name: string) {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
+}
+
+function validationFieldErrors(
+  issues: Array<{ path: PropertyKey[]; message: string }>,
+  criteria: Array<{ id: string }>,
+) {
+  const errors: Record<string, string[]> = {};
+
+  for (const issue of issues) {
+    let key = typeof issue.path[0] === "string" ? issue.path[0] : "form";
+    if (key === "ratings" && typeof issue.path[1] === "number") {
+      const criterion = criteria[issue.path[1]];
+      const field = issue.path[2] === "comment" ? "comment" : "rating";
+      if (criterion) key = `${field}.${criterion.id}`;
+    }
+    errors[key] = [...(errors[key] ?? []), issue.message];
+  }
+
+  return errors;
 }
 
 class ScorecardAlreadySubmittedError extends Error {}
@@ -84,8 +104,8 @@ export async function saveScorecard(
 
   if (!parsed.success) {
     return fail(
-      "Check the feedback fields and try again.",
-      parsed.error.flatten().fieldErrors as Record<string, string[]>,
+      "Check the highlighted feedback fields and try again.",
+      validationFieldErrors(parsed.error.issues, context.criteria),
     );
   }
 
@@ -107,6 +127,12 @@ export async function saveScorecard(
     if (unrated.length > 0) {
       return fail(
         `Rate every criterion before submitting. Still needed: ${unrated.map((criterion) => criterion.label).join(", ")}.`,
+        Object.fromEntries(
+          unrated.map((criterion) => [
+            `rating.${criterion.id}`,
+            ["Choose a rating from 1 to 5"],
+          ]),
+        ),
       );
     }
   }
@@ -115,27 +141,16 @@ export async function saveScorecard(
     (rating): rating is typeof rating & { rating: number } =>
       rating.rating !== null,
   );
-  const weights = new Map(
-    context.criteria.map((criterion) => [
-      criterion.id,
-      criterion.weight > 0 ? criterion.weight : 1,
-    ]),
-  );
-  const totalWeight = rated.reduce(
-    (sum, rating) => sum + (weights.get(rating.criterionId) ?? 1),
-    0,
-  );
   const weightedScore =
-    input.intent === "submit" && totalWeight > 0
-      ? rated.reduce(
-          (sum, rating) =>
-            sum + rating.rating * (weights.get(rating.criterionId) ?? 1),
-          0,
-        ) / totalWeight
+    input.intent === "submit"
+      ? calculateWeightedScore(context.criteria, rated)
       : null;
   const now = new Date();
 
   try {
+    // Scorecard identity/status and the full replacement set of ratings share
+    // one PostgreSQL transaction. Any failed rating insert rolls back the
+    // scorecard insert/update and the preceding rating deletion with it.
     await db.transaction(async (tx) => {
       const scorecardValues = {
         status:

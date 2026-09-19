@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   applications,
@@ -290,6 +290,46 @@ export async function listAssignedActiveCandidates(
   }
 
   return Array.from(groups.values());
+}
+
+/**
+ * Active assignments that still need this viewer's submitted scorecard.
+ *
+ * Drafts intentionally remain outstanding: the left join only matches a
+ * submitted scorecard by this viewer for this exact application-stage.
+ */
+export async function countOutstandingFeedback(userId: string) {
+  const [row] = await db
+    .select({ total: count() })
+    .from(applications)
+    .innerJoin(
+      positionStageInterviewers,
+      and(
+        eq(
+          positionStageInterviewers.positionStageId,
+          applications.currentStageId,
+        ),
+        eq(positionStageInterviewers.userId, userId),
+      ),
+    )
+    .innerJoin(
+      applicationStages,
+      and(
+        eq(applicationStages.applicationId, applications.id),
+        eq(applicationStages.positionStageId, applications.currentStageId),
+      ),
+    )
+    .leftJoin(
+      scorecards,
+      and(
+        eq(scorecards.applicationStageId, applicationStages.id),
+        eq(scorecards.authorId, userId),
+        eq(scorecards.status, "submitted"),
+      ),
+    )
+    .where(and(eq(applications.status, "active"), isNull(scorecards.id)));
+
+  return row?.total ?? 0;
 }
 
 /** Stage ids on a given application that this interviewer is responsible for. */

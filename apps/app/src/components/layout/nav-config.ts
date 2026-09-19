@@ -18,6 +18,8 @@ export type NavItem = {
   icon: LucideIcon;
   /** Undefined means every signed-in role sees it. */
   permission?: Permission;
+  /** Unreleased destinations stay documented here but never render as dead links. */
+  released?: boolean;
 };
 
 export type NavGroup = { label: string; items: NavItem[] };
@@ -51,6 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/interviews",
         icon: ClipboardList,
         permission: "interview:view",
+        released: false,
       },
     ],
   },
@@ -62,6 +65,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/reports",
         icon: ChartNoAxesColumn,
         permission: "report:view",
+        released: false,
       },
     ],
   },
@@ -73,6 +77,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/settings/templates",
         icon: ClipboardList,
         permission: "template:manage",
+        released: false,
       },
       {
         title: "Users",
@@ -85,6 +90,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/admin/notifications",
         icon: Mail,
         permission: "notification:view",
+        released: false,
       },
     ],
   },
