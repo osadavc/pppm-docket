@@ -7,6 +7,17 @@ export function formatDate(value: Date | null | undefined) {
   }).format(value);
 }
 
+export function formatDateTime(value: Date | null | undefined) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value);
+}
+
 /** yyyy-MM-dd for <input type="date">, in local time. */
 export function toDateInputValue(value: Date | null | undefined) {
   if (!value) return "";

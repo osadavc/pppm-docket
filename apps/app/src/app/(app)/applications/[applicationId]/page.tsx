@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { ScorecardRevisionViewer } from "@/components/applications/scorecard-revision-viewer";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -18,6 +19,7 @@ import {
   getApplicationHeader,
   getApplicationTimeline,
 } from "@/lib/queries/activity";
+import { getApplicationScorecardRevisions } from "@/lib/queries/scorecard-revisions";
 
 export const metadata: Metadata = { title: "Application · Docket" };
 
@@ -34,7 +36,10 @@ export default async function ApplicationPage({
   const header = await getApplicationHeader(applicationId);
   if (!header) notFound();
 
-  const entries = await getApplicationTimeline(applicationId, viewer);
+  const [entries, revisionGroups] = await Promise.all([
+    getApplicationTimeline(applicationId, viewer),
+    getApplicationScorecardRevisions(applicationId, viewer),
+  ]);
   const seesEverything = can(viewer.role, "scorecard:read-all");
 
   return (
@@ -78,6 +83,8 @@ export default async function ApplicationPage({
           <ActivityTimeline entries={entries} />
         </CardContent>
       </Card>
+
+      <ScorecardRevisionViewer groups={revisionGroups} />
     </>
   );
 }
