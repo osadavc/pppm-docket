@@ -28,7 +28,9 @@ export function AppSidebar({ user }: { user: SessionUser }) {
   const groups = NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter(
-      (item) => !item.permission || can(user.role, item.permission),
+      (item) =>
+        item.released !== false &&
+        (!item.permission || can(user.role, item.permission)),
     ),
   })).filter((group) => group.items.length > 0);
 
@@ -62,10 +64,15 @@ export function AppSidebar({ user }: { user: SessionUser }) {
               <SidebarMenu>
                 {group.items.map((item) => {
                   const isActive =
-                    pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`);
                   return (
                     <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.title}
+                      >
                         <Link href={item.href}>
                           <item.icon />
                           <span>{item.title}</span>

@@ -13,7 +13,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import {
   saveScorecard,
@@ -40,6 +45,7 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
     FormData
   >(saveScorecard, null);
   const submitted = context.scorecard?.status === "submitted";
+  const fieldErrors = state && !state.ok ? (state.fieldErrors ?? {}) : {};
 
   useEffect(() => {
     if (!state?.ok) return;
@@ -87,64 +93,88 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
                 and written feedback below.
               </p>
             ) : (
-              context.criteria.map((criterion) => (
-                <section
-                  key={criterion.id}
-                  className="rounded-lg border p-4"
-                  aria-labelledby={`criterion-${criterion.id}`}
-                >
-                  <div className="mb-3">
-                    <h2
-                      id={`criterion-${criterion.id}`}
-                      className="font-medium"
-                    >
-                      {criterion.label}
-                    </h2>
-                    {criterion.description ? (
-                      <p className="text-muted-foreground mt-0.5 text-sm">
-                        {criterion.description}
-                      </p>
-                    ) : null}
-                  </div>
+              context.criteria.map((criterion) => {
+                const ratingError = fieldErrors[`rating.${criterion.id}`]?.[0];
+                const commentError =
+                  fieldErrors[`comment.${criterion.id}`]?.[0];
 
-                  <div className="grid grid-cols-5 gap-1.5" role="radiogroup">
-                    {([1, 2, 3, 4, 5] as const).map((rating) => (
-                      <label
-                        key={rating}
-                        className="has-checked:border-primary has-checked:bg-primary has-checked:text-primary-foreground hover:bg-muted flex min-w-0 cursor-pointer flex-col items-center rounded-md border px-1 py-2 text-center transition-colors has-focus-visible:ring-2 has-focus-visible:ring-ring"
+                return (
+                  <section
+                    key={criterion.id}
+                    className="rounded-lg border p-4"
+                    aria-labelledby={`criterion-${criterion.id}`}
+                  >
+                    <div className="mb-3">
+                      <h2
+                        id={`criterion-${criterion.id}`}
+                        className="font-medium"
                       >
-                        <input
-                          type="radio"
-                          name={`rating.${criterion.id}`}
-                          value={rating}
-                          defaultChecked={criterion.rating === rating}
-                          className="sr-only"
-                          aria-label={`${criterion.label}: ${rating}, ${RATING_LABELS[rating]}`}
-                        />
-                        <span className="text-base font-semibold tabular-nums">
-                          {rating}
-                        </span>
-                        <span className="hidden text-[10px] leading-tight sm:block">
-                          {RATING_LABELS[rating]}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                        {criterion.label}
+                      </h2>
+                      {criterion.description ? (
+                        <p className="text-muted-foreground mt-0.5 text-sm">
+                          {criterion.description}
+                        </p>
+                      ) : null}
+                    </div>
 
-                  <Field className="mt-3">
-                    <FieldLabel htmlFor={`comment-${criterion.id}`}>
-                      Evidence or note{" "}
-                      <span className="text-muted-foreground">(optional)</span>
-                    </FieldLabel>
-                    <Textarea
-                      id={`comment-${criterion.id}`}
-                      name={`comment.${criterion.id}`}
-                      rows={2}
-                      defaultValue={criterion.comment}
-                    />
-                  </Field>
-                </section>
-              ))
+                    <div
+                      className="grid grid-cols-5 gap-1.5"
+                      role="radiogroup"
+                      aria-invalid={Boolean(ratingError)}
+                      aria-describedby={
+                        ratingError ? `rating-error-${criterion.id}` : undefined
+                      }
+                    >
+                      {([1, 2, 3, 4, 5] as const).map((rating) => (
+                        <label
+                          key={rating}
+                          className="has-checked:border-primary has-checked:bg-primary has-checked:text-primary-foreground hover:bg-muted flex min-w-0 cursor-pointer flex-col items-center rounded-md border px-1 py-2 text-center transition-colors has-focus-visible:ring-2 has-focus-visible:ring-ring"
+                        >
+                          <input
+                            type="radio"
+                            name={`rating.${criterion.id}`}
+                            value={rating}
+                            defaultChecked={criterion.rating === rating}
+                            className="sr-only"
+                            aria-label={`${criterion.label}: ${rating}, ${RATING_LABELS[rating]}`}
+                          />
+                          <span className="text-base font-semibold tabular-nums">
+                            {rating}
+                          </span>
+                          <span className="hidden text-[10px] leading-tight sm:block">
+                            {RATING_LABELS[rating]}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <FieldError id={`rating-error-${criterion.id}`}>
+                      {ratingError}
+                    </FieldError>
+
+                    <Field
+                      className="mt-3"
+                      data-invalid={Boolean(commentError)}
+                    >
+                      <FieldLabel htmlFor={`comment-${criterion.id}`}>
+                        Evidence or note{" "}
+                        <span className="text-muted-foreground">
+                          (optional)
+                        </span>
+                      </FieldLabel>
+                      <Textarea
+                        id={`comment-${criterion.id}`}
+                        name={`comment.${criterion.id}`}
+                        rows={2}
+                        maxLength={2000}
+                        aria-invalid={Boolean(commentError)}
+                        defaultValue={criterion.comment}
+                      />
+                      <FieldError>{commentError}</FieldError>
+                    </Field>
+                  </section>
+                );
+              })
             )}
           </CardContent>
         </Card>
@@ -157,7 +187,16 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
+            <div
+              className="grid gap-2 sm:grid-cols-2"
+              role="radiogroup"
+              aria-invalid={Boolean(fieldErrors.recommendation?.[0])}
+              aria-describedby={
+                fieldErrors.recommendation?.[0]
+                  ? "recommendation-error"
+                  : undefined
+              }
+            >
               {recommendationValues.map((recommendation) => (
                 <label
                   key={recommendation}
@@ -178,6 +217,9 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
                 </label>
               ))}
             </div>
+            <FieldError id="recommendation-error">
+              {fieldErrors.recommendation?.[0]}
+            </FieldError>
           </CardContent>
         </Card>
 
@@ -189,36 +231,48 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <Field>
+            <Field data-invalid={Boolean(fieldErrors.strengths?.[0])}>
               <FieldLabel htmlFor="strengths">Strengths</FieldLabel>
               <Textarea
                 id="strengths"
                 name="strengths"
                 rows={4}
+                maxLength={5000}
+                aria-invalid={Boolean(fieldErrors.strengths?.[0])}
                 defaultValue={context.scorecard?.strengths}
               />
+              <FieldError>{fieldErrors.strengths?.[0]}</FieldError>
             </Field>
-            <Field>
+            <Field data-invalid={Boolean(fieldErrors.concerns?.[0])}>
               <FieldLabel htmlFor="concerns">Concerns</FieldLabel>
               <Textarea
                 id="concerns"
                 name="concerns"
                 rows={4}
+                maxLength={5000}
+                aria-invalid={Boolean(fieldErrors.concerns?.[0])}
                 defaultValue={context.scorecard?.concerns}
               />
+              <FieldError>{fieldErrors.concerns?.[0]}</FieldError>
             </Field>
-            <Field className="sm:col-span-2">
+            <Field
+              className="sm:col-span-2"
+              data-invalid={Boolean(fieldErrors.notes?.[0])}
+            >
               <FieldLabel htmlFor="notes">Private notes</FieldLabel>
               <Textarea
                 id="notes"
                 name="notes"
                 rows={3}
+                maxLength={5000}
+                aria-invalid={Boolean(fieldErrors.notes?.[0])}
                 defaultValue={context.scorecard?.notes}
               />
               <FieldDescription>
                 Visible to the hiring team under Docket&apos;s feedback
                 visibility rules.
               </FieldDescription>
+              <FieldError>{fieldErrors.notes?.[0]}</FieldError>
             </Field>
           </CardContent>
         </Card>
