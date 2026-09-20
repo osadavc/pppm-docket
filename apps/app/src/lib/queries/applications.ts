@@ -14,7 +14,9 @@ import { REJECTION_REASON_LABELS } from "@/lib/validation/application";
 
 export type AdvanceContext = {
   applicationId: string;
+  candidateId: string;
   candidateName: string;
+  candidateEmail: string;
   positionId: string;
   positionTitle: string;
   status: string;
@@ -40,7 +42,9 @@ export async function getAdvanceContext(
     .select({
       applicationId: applications.id,
       status: applications.status,
+      candidateId: candidates.id,
       candidateName: candidates.fullName,
+      candidateEmail: candidates.email,
       positionId: positions.id,
       positionTitle: positions.title,
       requireFeedbackToAdvance: positions.requireFeedbackToAdvance,
@@ -110,7 +114,9 @@ export async function getAdvanceContext(
 
   return {
     applicationId: row.applicationId,
+    candidateId: row.candidateId,
     candidateName: row.candidateName,
+    candidateEmail: row.candidateEmail,
     positionId: row.positionId,
     positionTitle: row.positionTitle,
     status: row.status,
