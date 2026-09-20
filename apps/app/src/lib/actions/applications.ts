@@ -3,12 +3,19 @@
 import { and, asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
-import { applications, applicationStages, positionStages } from "@/db/schema";
+import {
+  applications,
+  applicationStages,
+  notifications,
+  positionStages,
+} from "@/db/schema";
 import { logActivity } from "@/lib/activity/log";
 import { requirePermission } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { getAdvanceContext } from "@/lib/queries/applications";
 import { getFillSummary } from "@/lib/queries/positions";
+import type { CandidateEmailDeliveryStatus } from "@/lib/domain/candidate-email";
+import { deliverCandidateEmail } from "@/lib/notifications/delivery";
 import {
   advanceApplicationSchema,
   holdApplicationSchema,
@@ -37,12 +44,23 @@ import { fail, ok, type ActionResult } from "./result";
  */
 export async function advanceApplication(
   input: AdvanceApplicationInput,
-): Promise<ActionResult<{ toStageId: string; toStageName: string }>> {
+): Promise<
+  ActionResult<{
+    toStageId: string;
+    toStageName: string;
+    notificationStatus: CandidateEmailDeliveryStatus;
+  }>
+> {
   const actor = await requirePermission("application:manage");
 
   const parsed = advanceApplicationSchema.safeParse(input);
-  if (!parsed.success) return fail("That request is not valid.");
-  const { applicationId, note, overrideReason } = parsed.data;
+  if (!parsed.success) {
+    return fail(
+      "Check the stage details and candidate email.",
+      parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    );
+  }
+  const { applicationId, note, overrideReason, notification } = parsed.data;
 
   const context = await getAdvanceContext(applicationId);
   if (!context) return fail("That application no longer exists.");
@@ -85,7 +103,7 @@ export async function advanceApplication(
   const from = context.currentStage;
   const to = context.nextStage;
 
-  await db.transaction(async (tx) => {
+  const notificationId = await db.transaction(async (tx) => {
     await tx
       .update(applicationStages)
       .set({
@@ -154,11 +172,36 @@ export async function advanceApplication(
         outstandingInterviewers: overridden ? context.outstandingInterviewers : [],
       },
     });
+
+    if (!notification) return null;
+    const [queued] = await tx
+      .insert(notifications)
+      .values({
+        type: "stage_advanced",
+        recipientEmail: context.candidateEmail,
+        recipientCandidateId: context.candidateId,
+        applicationId,
+        subject: notification.subject,
+        body: notification.body,
+      })
+      .returning({ id: notifications.id });
+    return queued.id;
   });
 
+  // Provider I/O only starts after the pipeline transaction commits. A failed
+  // advancement therefore cannot send or even queue candidate email.
+  const notificationStatus = notificationId
+    ? await deliverCandidateEmail(notificationId)
+    : "not_requested";
+
   revalidatePath(`/candidates`);
+  revalidatePath(`/applications/${applicationId}`);
   revalidatePath(`/positions/${context.positionId}/pipeline`);
-  return ok({ toStageId: to.id, toStageName: to.name });
+  return ok({
+    toStageId: to.id,
+    toStageName: to.name,
+    notificationStatus,
+  });
 }
 
 type StageRef = { id: string; name: string; orderIndex: number };
@@ -510,17 +553,17 @@ export async function resumeApplication(
  */
 export async function rejectApplication(
   input: RejectApplicationInput,
-): Promise<ActionResult<void>> {
+): Promise<ActionResult<{ notificationStatus: CandidateEmailDeliveryStatus }>> {
   const actor = await requirePermission("application:manage");
 
   const parsed = rejectApplicationSchema.safeParse(input);
   if (!parsed.success) {
     return fail(
-      "Choose a reason for the rejection.",
+      "Check the rejection details and candidate email.",
       parsed.error.flatten().fieldErrors as Record<string, string[]>,
     );
   }
-  const { applicationId, reason, note } = parsed.data;
+  const { applicationId, reason, note, notification } = parsed.data;
 
   const context = await getAdvanceContext(applicationId);
   if (!context) return fail("That application no longer exists.");
@@ -533,7 +576,7 @@ export async function rejectApplication(
 
   const now = new Date();
 
-  await db.transaction(async (tx) => {
+  const notificationId = await db.transaction(async (tx) => {
     await tx
       .update(applications)
       .set({
@@ -576,12 +619,33 @@ export async function rejectApplication(
         note: note ?? null,
       },
     });
+
+    if (!notification) return null;
+    const [queued] = await tx
+      .insert(notifications)
+      .values({
+        type: "decision_made",
+        recipientEmail: context.candidateEmail,
+        recipientCandidateId: context.candidateId,
+        applicationId,
+        subject: notification.subject,
+        body: notification.body,
+      })
+      .returning({ id: notifications.id });
+    return queued.id;
   });
 
+  // Keep the irreversible provider call outside the database transaction, but
+  // only after the rejection and its outbox row have committed together.
+  const notificationStatus = notificationId
+    ? await deliverCandidateEmail(notificationId)
+    : "not_requested";
+
   revalidatePath("/candidates");
+  revalidatePath(`/applications/${applicationId}`);
   revalidatePath(`/positions/${context.positionId}`);
   revalidatePath(`/positions/${context.positionId}/pipeline`);
-  return ok(undefined);
+  return ok({ notificationStatus });
 }
 
 /**

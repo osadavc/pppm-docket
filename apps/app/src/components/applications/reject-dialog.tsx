@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { CandidateEmailComposer } from "@/components/applications/candidate-email-composer";
 import {
   Dialog,
   DialogContent,
@@ -14,12 +15,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { rejectApplication } from "@/lib/actions/applications";
+import { rejectionEmailTemplate } from "@/lib/domain/candidate-email";
 import {
   REJECTION_REASON_LABELS,
   REJECTION_REASONS,
@@ -37,9 +44,22 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const template = rejectionEmailTemplate({
+    candidateName: context.candidateName,
+    positionTitle: context.positionTitle,
+  });
+  const [notifyCandidate, setNotifyCandidate] = useState(false);
+  const [emailSubject, setEmailSubject] = useState(template.subject);
+  const [emailBody, setEmailBody] = useState(template.body);
 
   const needsNote = reason === "other";
-  const ready = reason !== "" && (!needsNote || note.trim().length >= 10);
+  const emailReady =
+    !notifyCandidate ||
+    (emailSubject.trim().length > 0 && emailBody.trim().length > 0);
+  const ready =
+    reason !== "" &&
+    (!needsNote || note.trim().length >= 10) &&
+    emailReady;
 
   async function submit() {
     if (reason === "") return;
@@ -49,6 +69,9 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
       applicationId: context.applicationId,
       reason,
       note: note || undefined,
+      notification: notifyCandidate
+        ? { subject: emailSubject, body: emailBody }
+        : undefined,
     });
     setPending(false);
 
@@ -56,10 +79,25 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
       setError(result.error);
       return;
     }
-    toast.success(`${context.candidateName} rejected`);
+    if (result.data.notificationStatus === "failed") {
+      toast.warning(
+        `${context.candidateName} was rejected, but the candidate email failed.`,
+      );
+    } else {
+      const emailResult =
+        result.data.notificationStatus === "sent"
+          ? " and emailed"
+          : result.data.notificationStatus === "queued"
+            ? "; email queued"
+            : "";
+      toast.success(`${context.candidateName} rejected${emailResult}`);
+    }
     setOpen(false);
     setReason("");
     setNote("");
+    setNotifyCandidate(false);
+    setEmailSubject(template.subject);
+    setEmailBody(template.body);
     router.refresh();
   }
 
@@ -70,7 +108,7 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setError(undefined); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Reject {context.candidateName}</DialogTitle>
             <DialogDescription>
@@ -79,7 +117,7 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="my-4 space-y-4">
+          <FieldGroup className="my-4">
             {error ? (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -124,14 +162,27 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
                   : "Kept alongside the reason on the candidate’s record."}
               </FieldDescription>
             </Field>
-          </div>
+
+            <CandidateEmailComposer
+              idPrefix="reject-email"
+              recipientEmail={context.candidateEmail}
+              enabled={notifyCandidate}
+              onEnabledChange={setNotifyCandidate}
+              subject={emailSubject}
+              onSubjectChange={setEmailSubject}
+              body={emailBody}
+              onBodyChange={setEmailBody}
+            />
+          </FieldGroup>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={submit} disabled={pending || !ready}>
-              {pending ? "Rejecting…" : "Reject candidate"}
+              {pending
+                ? "Rejecting…"
+                : `Reject candidate${notifyCandidate ? " and email" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,8 +1,28 @@
 import { z } from "zod";
 
+export const candidateEmailSchema = z.object({
+  subject: z
+    .string()
+    .trim()
+    .min(1, "Enter an email subject")
+    .max(200, "Email subject is too long")
+    .refine((value) => !/[\r\n]/.test(value), {
+      message: "Email subject must be one line",
+    }),
+  body: z
+    .string()
+    .trim()
+    .min(1, "Enter an email message")
+    .max(10_000, "Email message is too long"),
+});
+
+export type CandidateEmailInput = z.infer<typeof candidateEmailSchema>;
+
 export const advanceApplicationSchema = z.object({
   applicationId: z.uuid(),
   note: z.string().trim().max(2000).optional(),
+  /** Presence means HR explicitly selected “Email candidate”. */
+  notification: candidateEmailSchema.optional(),
   /**
    * Present only when HR is deliberately moving someone past an unsatisfied
    * feedback gate. Required in that case so the reason is on the record.
@@ -78,6 +98,8 @@ export const rejectApplicationSchema = z
       message: "Choose a rejection reason",
     }),
     note: z.string().trim().max(2000).optional(),
+    /** Presence means HR explicitly selected “Email candidate”. */
+    notification: candidateEmailSchema.optional(),
   })
   // "Other" with no explanation is the one answer that tells analytics nothing,
   // so it is the one case where the free-text note is mandatory.
