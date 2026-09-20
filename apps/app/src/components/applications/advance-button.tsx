@@ -14,10 +14,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { CandidateEmailComposer } from "@/components/applications/candidate-email-composer";
 import { advanceApplication } from "@/lib/actions/applications";
 import { GATE_EXPLANATIONS } from "@/lib/domain/advancement";
+import { advancementEmailTemplate } from "@/lib/domain/candidate-email";
 import type { AdvanceContext } from "@/lib/queries/applications";
 
 export function AdvanceButton({
@@ -33,6 +40,14 @@ export function AdvanceButton({
   const [override, setOverride] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const template = advancementEmailTemplate({
+    candidateName: context.candidateName,
+    positionTitle: context.positionTitle,
+    nextStageName: context.nextStage?.name ?? "the next stage",
+  });
+  const [notifyCandidate, setNotifyCandidate] = useState(false);
+  const [emailSubject, setEmailSubject] = useState(template.subject);
+  const [emailBody, setEmailBody] = useState(template.body);
 
   const blocked = context.gate.blocked;
   const needsOverride = blocked && canOverride;
@@ -54,6 +69,9 @@ export function AdvanceButton({
       applicationId: context.applicationId,
       note: note || undefined,
       overrideReason: needsOverride ? override || undefined : undefined,
+      notification: notifyCandidate
+        ? { subject: emailSubject, body: emailBody }
+        : undefined,
     });
     setPending(false);
 
@@ -61,12 +79,31 @@ export function AdvanceButton({
       setError(result.error);
       return;
     }
-    toast.success(`Moved to ${result.data.toStageName}`);
+    if (result.data.notificationStatus === "failed") {
+      toast.warning(
+        `Moved to ${result.data.toStageName}, but the candidate email failed.`,
+      );
+    } else {
+      const emailResult =
+        result.data.notificationStatus === "sent"
+          ? " and emailed the candidate"
+          : result.data.notificationStatus === "queued"
+            ? "; candidate email queued"
+            : "";
+      toast.success(`Moved to ${result.data.toStageName}${emailResult}`);
+    }
     setOpen(false);
     setNote("");
     setOverride("");
+    setNotifyCandidate(false);
+    setEmailSubject(template.subject);
+    setEmailBody(template.body);
     router.refresh();
   }
+
+  const emailReady =
+    !notifyCandidate ||
+    (emailSubject.trim().length > 0 && emailBody.trim().length > 0);
 
   return (
     <>
@@ -75,7 +112,7 @@ export function AdvanceButton({
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setError(undefined); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Advance {context.candidateName}</DialogTitle>
             <DialogDescription>
@@ -83,7 +120,7 @@ export function AdvanceButton({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="my-4 space-y-4">
+          <FieldGroup className="my-4">
             {error ? (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -130,7 +167,18 @@ export function AdvanceButton({
               />
               <FieldDescription>Optional, recorded against the stage.</FieldDescription>
             </Field>
-          </div>
+
+            <CandidateEmailComposer
+              idPrefix="advance-email"
+              recipientEmail={context.candidateEmail}
+              enabled={notifyCandidate}
+              onEnabledChange={setNotifyCandidate}
+              subject={emailSubject}
+              onSubjectChange={setEmailSubject}
+              body={emailBody}
+              onBodyChange={setEmailBody}
+            />
+          </FieldGroup>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
@@ -138,9 +186,16 @@ export function AdvanceButton({
             </Button>
             <Button
               onClick={submit}
-              disabled={pending || (needsOverride && override.trim().length < 10) || (blocked && !canOverride)}
+              disabled={
+                pending ||
+                !emailReady ||
+                (needsOverride && override.trim().length < 10) ||
+                (blocked && !canOverride)
+              }
             >
-              {pending ? "Moving…" : `Move to ${context.nextStage.name}`}
+              {pending
+                ? "Moving…"
+                : `Move to ${context.nextStage.name}${notifyCandidate ? " and email" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
