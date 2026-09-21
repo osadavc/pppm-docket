@@ -26,10 +26,10 @@ export default async function FeedbackPage({
     <>
       <div>
         <Link
-          href="/agenda"
+          href="/queue"
           className="text-muted-foreground mb-2 inline-flex items-center gap-1 text-sm hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <ArrowLeft className="size-3.5" /> Back to my agenda
+          <ArrowLeft className="size-3.5" /> Back to my queue
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
