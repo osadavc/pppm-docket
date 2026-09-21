@@ -1,0 +1,274 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { eq, inArray } from "drizzle-orm";
+import { db } from "@/db/client";
+import {
+  applications,
+  applicationStages,
+  attachments,
+  candidates,
+  positions,
+  positionStageInterviewers,
+  positionStages,
+  scorecards,
+  user,
+} from "@/db/schema";
+import { getMyQueue, QUEUE_PAGE_SIZE } from "./queue";
+import { interviewerCanViewApplication } from "./stage-interviewers";
+
+test(
+  "assigned queue is bounded, gate-aware, and access stays current-stage-or-author",
+  { timeout: 30_000 },
+  async () => {
+    const seededUsers = await db
+      .select({ id: user.id, email: user.email })
+      .from(user)
+      .where(
+        inArray(user.email, [
+          "hr@docket.test",
+          "eng.lead@docket.test",
+          "dev1@docket.test",
+          "ops.lead@docket.test",
+        ]),
+      );
+    const userId = (email: string) =>
+      seededUsers.find((row) => row.email === email)?.id;
+    const hrId = userId("hr@docket.test");
+    const viewerId = userId("eng.lead@docket.test");
+    const panelPeerId = userId("dev1@docket.test");
+    const unassignedId = userId("ops.lead@docket.test");
+
+    if (!hrId || !viewerId || !panelPeerId || !unassignedId) {
+      throw new Error(
+        "Run `bun run db:seed` before the queue integration test.",
+      );
+    }
+
+    const marker = crypto.randomUUID();
+    const now = new Date();
+    const baseline = await getMyQueue(viewerId, 1, now);
+    const [position] = await db
+      .insert(positions)
+      .values({
+        title: `Queue integration ${marker}`,
+        department: "Test",
+        description: "Synthetic queue integration position",
+        status: "open",
+        requireFeedbackToAdvance: true,
+        createdById: hrId,
+      })
+      .returning({ id: positions.id });
+    const candidateIds: string[] = [];
+
+    try {
+      const [stage] = await db
+        .insert(positionStages)
+        .values({
+          positionId: position.id,
+          name: "Panel interview",
+          orderIndex: 0,
+          requiresScorecard: true,
+          minScorecards: 1,
+        })
+        .returning({ id: positionStages.id });
+
+      await db.insert(positionStageInterviewers).values([
+        { positionStageId: stage.id, userId: viewerId },
+        { positionStageId: stage.id, userId: panelPeerId },
+      ]);
+
+      const candidateValues = Array.from(
+        { length: QUEUE_PAGE_SIZE + 3 },
+        (_, index) => ({
+          fullName: `Queue Candidate ${String(index).padStart(2, "0")}`,
+          email: `queue-${marker}-${index}@docket.test`,
+          currentTitle: "Synthetic candidate",
+          createdById: hrId,
+        }),
+      );
+      const candidateRows = await db
+        .insert(candidates)
+        .values(candidateValues)
+        .returning({ id: candidates.id, fullName: candidates.fullName });
+      candidateIds.push(...candidateRows.map((candidate) => candidate.id));
+      const candidateByName = new Map(
+        candidateRows.map((candidate) => [candidate.fullName, candidate.id]),
+      );
+
+      const activeCandidateNames = candidateValues
+        .slice(0, QUEUE_PAGE_SIZE + 2)
+        .map((candidate) => candidate.fullName);
+      const applicationRows = await db
+        .insert(applications)
+        .values(
+          candidateValues.map((candidate, index) => ({
+            candidateId: candidateByName.get(candidate.fullName)!,
+            positionId: position.id,
+            currentStageId: stage.id,
+            status:
+              index === QUEUE_PAGE_SIZE + 2
+                ? ("withdrawn" as const)
+                : ("active" as const),
+            createdById: hrId,
+          })),
+        )
+        .returning({
+          id: applications.id,
+          candidateId: applications.candidateId,
+          status: applications.status,
+        });
+      const applicationByCandidateId = new Map(
+        applicationRows.map((application) => [
+          application.candidateId,
+          application,
+        ]),
+      );
+
+      const applicationStageRows = await db
+        .insert(applicationStages)
+        .values(
+          candidateValues.map((candidate, index) => ({
+            applicationId: applicationByCandidateId.get(
+              candidateByName.get(candidate.fullName)!,
+            )!.id,
+            positionStageId: stage.id,
+            orderIndex: 0,
+            status:
+              index === QUEUE_PAGE_SIZE + 2
+                ? ("passed" as const)
+                : ("in_progress" as const),
+            enteredAt: new Date(
+              now.getTime() - (QUEUE_PAGE_SIZE + 3 - index) * 86_400_000,
+            ),
+          })),
+        )
+        .returning({
+          id: applicationStages.id,
+          applicationId: applicationStages.applicationId,
+        });
+      const applicationStageByApplicationId = new Map(
+        applicationStageRows.map((applicationStage) => [
+          applicationStage.applicationId,
+          applicationStage.id,
+        ]),
+      );
+      const applicationFor = (name: string) =>
+        applicationByCandidateId.get(candidateByName.get(name)!)!;
+      const applicationStageFor = (name: string) =>
+        applicationStageByApplicationId.get(applicationFor(name).id)!;
+
+      await db.insert(scorecards).values([
+        {
+          applicationId: applicationFor("Queue Candidate 00").id,
+          applicationStageId: applicationStageFor("Queue Candidate 00"),
+          authorId: panelPeerId,
+          status: "submitted",
+          recommendation: "yes",
+          submittedAt: now,
+        },
+        ...["Queue Candidate 50", "Queue Candidate 51"].map((name) => ({
+          applicationId: applicationFor(name).id,
+          applicationStageId: applicationStageFor(name),
+          authorId: viewerId,
+          status: "submitted" as const,
+          recommendation: "yes" as const,
+          submittedAt: now,
+        })),
+      ]);
+
+      const [cv] = await db
+        .insert(attachments)
+        .values({
+          kind: "cv",
+          candidateId: candidateByName.get("Queue Candidate 00"),
+          applicationId: applicationFor("Queue Candidate 00").id,
+          storagePath: `queue-integration/${marker}/cv.pdf`,
+          fileName: "candidate-00-cv.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 128,
+          uploadedById: hrId,
+        })
+        .returning({ id: attachments.id });
+
+      const firstPage = await getMyQueue(viewerId, 1, now);
+      const pages = [firstPage];
+      for (let page = 2; page <= firstPage.pagination.totalPages; page += 1) {
+        pages.push(await getMyQueue(viewerId, page, now));
+      }
+      const syntheticAwaiting = pages
+        .flatMap((page) => page.awaiting)
+        .filter((candidate) =>
+          candidate.candidateName.startsWith("Queue Candidate"),
+        );
+      const syntheticSubmitted = pages
+        .flatMap((page) => page.submitted)
+        .filter((candidate) =>
+          candidate.candidateName.startsWith("Queue Candidate"),
+        );
+
+      assert.equal(
+        firstPage.summary.total,
+        baseline.summary.total + QUEUE_PAGE_SIZE + 2,
+      );
+      assert.equal(
+        firstPage.summary.awaiting,
+        baseline.summary.awaiting + QUEUE_PAGE_SIZE,
+      );
+      assert.equal(firstPage.summary.submitted, baseline.summary.submitted + 2);
+      assert.deepEqual(
+        syntheticAwaiting.map((candidate) => candidate.candidateName),
+        activeCandidateNames.slice(0, QUEUE_PAGE_SIZE),
+      );
+      assert.deepEqual(
+        syntheticSubmitted.map((candidate) => candidate.candidateName),
+        ["Queue Candidate 50", "Queue Candidate 51"],
+      );
+      assert.equal(syntheticAwaiting[0].cvAttachmentId, cv.id);
+      assert.equal(syntheticAwaiting[0].gate.blocked, false);
+      assert.equal(syntheticAwaiting[1].gate.blocked, true);
+      assert.equal(syntheticAwaiting[1].gate.outstanding, 1);
+      assert.ok(
+        pages.every(
+          (page) =>
+            page.awaiting.length + page.submitted.length <= QUEUE_PAGE_SIZE,
+        ),
+      );
+
+      const accessApplication = applicationFor("Queue Candidate 01");
+      assert.equal(
+        await interviewerCanViewApplication(viewerId, accessApplication.id),
+        true,
+      );
+      assert.equal(
+        await interviewerCanViewApplication(unassignedId, accessApplication.id),
+        false,
+      );
+
+      await db.insert(scorecards).values({
+        applicationId: accessApplication.id,
+        applicationStageId: applicationStageFor("Queue Candidate 01"),
+        authorId: unassignedId,
+        status: "submitted",
+        recommendation: "yes",
+        submittedAt: now,
+      });
+      assert.equal(
+        await interviewerCanViewApplication(unassignedId, accessApplication.id),
+        true,
+      );
+
+      const inactiveApplication = applicationRows.find(
+        (application) => application.status === "withdrawn",
+      )!;
+      assert.equal(
+        await interviewerCanViewApplication(viewerId, inactiveApplication.id),
+        false,
+      );
+    } finally {
+      await db.delete(positions).where(eq(positions.id, position.id));
+      if (candidateIds.length > 0) {
+        await db.delete(candidates).where(inArray(candidates.id, candidateIds));
+      }
+    }
+  },
+);

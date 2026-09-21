@@ -1,8 +1,8 @@
 import {
   BadgeCheck,
   BriefcaseBusiness,
-  CalendarClock,
   ChartNoAxesColumn,
+  ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
   Mail,
@@ -29,7 +29,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Hiring",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { title: "My agenda", href: "/agenda", icon: CalendarClock },
+      { title: "My queue", href: "/queue", icon: ClipboardCheck },
       {
         title: "Positions",
         href: "/positions",

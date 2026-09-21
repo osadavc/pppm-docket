@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check-types": "tsc --noEmit",
+    "test:queue": "bun --env-file=.env.local --conditions=react-server test src/lib/queries/queue.integration.test.ts",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

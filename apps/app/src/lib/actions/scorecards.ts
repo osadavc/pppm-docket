@@ -534,7 +534,7 @@ export async function saveScorecard(
     throw error;
   }
 
-  revalidatePath("/agenda");
+  revalidatePath("/queue");
   revalidatePath(`/applications/${applicationId}`);
   revalidatePath(`/applications/${applicationId}/feedback`);
   return ok({
