@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, exists } from "drizzle-orm";
+import { and, desc, eq, exists, ne } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import {
@@ -168,7 +168,15 @@ export async function getApplicationTimeline(
       })
       .from(activityLog)
       .leftJoin(user, eq(user.id, activityLog.actorId))
-      .where(eq(activityLog.applicationId, applicationId))
+      // Submission is rendered from the authorized scorecard query below.
+      // Excluding its audit event here prevents both duplicate timeline rows
+      // and a side channel around same-stage feedback visibility.
+      .where(
+        and(
+          eq(activityLog.applicationId, applicationId),
+          ne(activityLog.action, "scorecard.submitted"),
+        ),
+      )
       .orderBy(desc(activityLog.createdAt)),
 
     db

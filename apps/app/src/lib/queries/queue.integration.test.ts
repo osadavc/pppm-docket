@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   applications,
   applicationStages,
   attachments,
+  activityLog,
   candidates,
   positions,
   positionStageInterviewers,
@@ -14,6 +15,8 @@ import {
   user,
 } from "@/db/schema";
 import { getMyQueue, QUEUE_PAGE_SIZE } from "./queue";
+import { getAdvanceContext } from "./applications";
+import { getApplicationTimeline } from "./activity";
 import { interviewerCanViewApplication } from "./stage-interviewers";
 
 test(
@@ -59,6 +62,7 @@ test(
       })
       .returning({ id: positions.id });
     const candidateIds: string[] = [];
+    let submissionActivityId: number | undefined;
 
     try {
       const [stage] = await db
@@ -264,7 +268,98 @@ test(
         await interviewerCanViewApplication(viewerId, inactiveApplication.id),
         false,
       );
+
+      const gateApplication = applicationFor("Queue Candidate 00");
+      let advanceContext = await getAdvanceContext(gateApplication.id);
+      assert.equal(advanceContext?.gate.required, 1);
+      assert.equal(advanceContext?.gate.blocked, false);
+
+      await db
+        .update(positionStages)
+        .set({ minScorecards: 2 })
+        .where(eq(positionStages.id, stage.id));
+      advanceContext = await getAdvanceContext(gateApplication.id);
+      assert.equal(advanceContext?.gate.required, 2);
+      assert.equal(advanceContext?.gate.outstanding, 1);
+
+      const [viewerSubmission] = await db
+        .insert(scorecards)
+        .values({
+          applicationId: gateApplication.id,
+          applicationStageId: applicationStageFor("Queue Candidate 00"),
+          authorId: viewerId,
+          status: "submitted",
+          recommendation: "strong_yes",
+          submittedAt: now,
+        })
+        .returning({ id: scorecards.id });
+      const [submissionActivity] = await db
+        .insert(activityLog)
+        .values({
+          actorId: viewerId,
+          action: "scorecard.submitted",
+          entityType: "scorecard",
+          entityId: viewerSubmission.id,
+          applicationId: gateApplication.id,
+          positionId: position.id,
+          summary: "Synthetic scorecard submission audit event",
+          metadata: {
+            applicationStageId: applicationStageFor("Queue Candidate 00"),
+          },
+        })
+        .returning({ id: activityLog.id });
+      submissionActivityId = submissionActivity.id;
+
+      const timeline = await getApplicationTimeline(gateApplication.id, {
+        id: viewerId,
+        name: "Queue integration viewer",
+        email: "eng.lead@docket.test",
+        role: "interviewer",
+        isActive: true,
+      });
+      assert.equal(
+        timeline.filter(
+          (entry) => entry.id === `scorecard-${viewerSubmission.id}`,
+        ).length,
+        1,
+      );
+      assert.equal(
+        timeline.some((entry) => entry.id === `log-${submissionActivity.id}`),
+        false,
+      );
+      advanceContext = await getAdvanceContext(gateApplication.id);
+      assert.equal(advanceContext?.gate.blocked, false);
+
+      await db
+        .delete(positionStageInterviewers)
+        .where(
+          and(
+            eq(positionStageInterviewers.positionStageId, stage.id),
+            eq(positionStageInterviewers.userId, panelPeerId),
+          ),
+        );
+      advanceContext = await getAdvanceContext(gateApplication.id);
+      assert.equal(advanceContext?.gate.required, 1);
+      assert.equal(advanceContext?.gate.blocked, false);
+      assert.deepEqual(advanceContext?.outstandingInterviewers, []);
+
+      await db
+        .delete(positionStageInterviewers)
+        .where(
+          and(
+            eq(positionStageInterviewers.positionStageId, stage.id),
+            eq(positionStageInterviewers.userId, viewerId),
+          ),
+        );
+      advanceContext = await getAdvanceContext(gateApplication.id);
+      assert.equal(advanceContext?.gate.reason, "no_interviewers_assigned");
+      assert.equal(advanceContext?.gate.blocked, false);
     } finally {
+      if (submissionActivityId !== undefined) {
+        await db
+          .delete(activityLog)
+          .where(eq(activityLog.id, submissionActivityId));
+      }
       await db.delete(positions).where(eq(positions.id, position.id));
       if (candidateIds.length > 0) {
         await db.delete(candidates).where(inArray(candidates.id, candidateIds));

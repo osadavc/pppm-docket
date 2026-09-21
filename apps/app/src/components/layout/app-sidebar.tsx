@@ -15,9 +15,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { NAV_GROUPS } from "./nav-config";
+import { isNavItemActive, navGroupsForRole } from "./nav-config";
 import { UserMenu } from "./user-menu";
-import { can } from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/guards";
 
 export function AppSidebar({ user }: { user: SessionUser }) {
@@ -25,14 +24,7 @@ export function AppSidebar({ user }: { user: SessionUser }) {
 
   // The sidebar hides what the server would refuse — it is not the enforcement
   // point. Every route re-checks on the server.
-  const groups = NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter(
-      (item) =>
-        item.released !== false &&
-        (!item.permission || can(user.role, item.permission)),
-    ),
-  })).filter((group) => group.items.length > 0);
+  const groups = navGroupsForRole(user.role);
 
   return (
     <Sidebar collapsible="icon">
@@ -63,9 +55,7 @@ export function AppSidebar({ user }: { user: SessionUser }) {
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
-                  const isActive =
-                    pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`);
+                  const isActive = isNavItemActive(pathname, item.href);
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
