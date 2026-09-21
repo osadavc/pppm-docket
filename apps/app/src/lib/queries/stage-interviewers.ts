@@ -1,19 +1,15 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, eq, exists, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   applications,
   applicationStages,
-  attachments,
-  candidates,
-  positions,
   positionStageInterviewers,
   positionStages,
   scorecards,
   user,
 } from "@/db/schema";
-import { paceFor, type Pace } from "@/lib/domain/pace";
 import { isUserRole, type UserRole } from "@/lib/auth/roles";
 
 export type StagePanelMember = {
@@ -158,8 +154,11 @@ export async function listPositionIdsVisibleToInterviewer(userId: string) {
 }
 
 /**
- * Whether an interviewer may see a given application: true only while the
- * application is active and currently sits at a stage assigned to them.
+ * Whether an interviewer may see a given application.
+ *
+ * Current panel members can work on an active application. A person who has
+ * already submitted feedback keeps read access after the candidate moves on,
+ * so their own audited contribution never becomes a guessed-URL-only record.
  */
 export async function interviewerCanViewApplication(
   userId: string,
@@ -168,217 +167,45 @@ export async function interviewerCanViewApplication(
   const [row] = await db
     .select({ id: applications.id })
     .from(applications)
-    .innerJoin(
-      positionStageInterviewers,
-      and(
-        eq(
-          positionStageInterviewers.positionStageId,
-          applications.currentStageId,
-        ),
-        eq(positionStageInterviewers.userId, userId),
-      ),
-    )
     .where(
       and(
         eq(applications.id, applicationId),
-        eq(applications.status, "active"),
+        or(
+          and(
+            eq(applications.status, "active"),
+            exists(
+              db
+                .select({ id: positionStageInterviewers.id })
+                .from(positionStageInterviewers)
+                .where(
+                  and(
+                    eq(positionStageInterviewers.userId, userId),
+                    eq(
+                      positionStageInterviewers.positionStageId,
+                      applications.currentStageId,
+                    ),
+                  ),
+                ),
+            ),
+          ),
+          exists(
+            db
+              .select({ id: scorecards.id })
+              .from(scorecards)
+              .where(
+                and(
+                  eq(scorecards.applicationId, applications.id),
+                  eq(scorecards.authorId, userId),
+                  eq(scorecards.status, "submitted"),
+                ),
+              ),
+          ),
+        ),
       ),
     )
     .limit(1);
 
   return Boolean(row);
-}
-
-export type AssignedCandidate = {
-  applicationId: string;
-  candidateId: string;
-  candidateName: string;
-  candidateTitle: string | null;
-  positionId: string;
-  positionTitle: string;
-  stageId: string;
-  stageName: string;
-  stageOrder: number;
-  enteredAt: Date | null;
-  pace: Pace;
-  feedbackStatus: "awaiting" | "submitted";
-  /** Opaque database id only; the queue never receives a storage path or URL. */
-  cvAttachmentId: string | null;
-};
-
-export type AssignedStageQueue = {
-  key: string;
-  positionId: string;
-  positionTitle: string;
-  stageId: string;
-  stageName: string;
-  stageOrder: number;
-  candidates: AssignedCandidate[];
-};
-
-/**
- * The viewer's live assessment queue.
- *
- * Assignment, active status and current-stage matching all live in this query.
- * Callers never receive candidates from another stage and do not need to
- * filter a broader application collection in memory.
- */
-export async function listAssignedActiveCandidates(
-  userId: string,
-  now: Date = new Date(),
-): Promise<AssignedStageQueue[]> {
-  const rows = await db
-    .select({
-      applicationId: applications.id,
-      candidateId: candidates.id,
-      candidateName: candidates.fullName,
-      candidateTitle: candidates.currentTitle,
-      positionId: positions.id,
-      positionTitle: positions.title,
-      stageId: positionStages.id,
-      stageName: positionStages.name,
-      stageOrder: positionStages.orderIndex,
-      enteredAt: applicationStages.enteredAt,
-      submittedScorecardId: scorecards.id,
-    })
-    .from(applications)
-    .innerJoin(candidates, eq(candidates.id, applications.candidateId))
-    .innerJoin(positions, eq(positions.id, applications.positionId))
-    .innerJoin(
-      positionStages,
-      eq(positionStages.id, applications.currentStageId),
-    )
-    .innerJoin(
-      positionStageInterviewers,
-      and(
-        eq(positionStageInterviewers.positionStageId, positionStages.id),
-        eq(positionStageInterviewers.userId, userId),
-      ),
-    )
-    .innerJoin(
-      applicationStages,
-      and(
-        eq(applicationStages.applicationId, applications.id),
-        eq(applicationStages.positionStageId, positionStages.id),
-      ),
-    )
-    .leftJoin(
-      scorecards,
-      and(
-        eq(scorecards.applicationStageId, applicationStages.id),
-        eq(scorecards.authorId, userId),
-        eq(scorecards.status, "submitted"),
-      ),
-    )
-    .where(eq(applications.status, "active"))
-    .orderBy(
-      asc(positions.title),
-      asc(positionStages.orderIndex),
-      asc(applicationStages.enteredAt),
-      asc(candidates.fullName),
-    );
-
-  const cvByApplication = new Map<string, string>();
-  if (rows.length > 0) {
-    const cvRows = await db
-      .select({
-        id: attachments.id,
-        applicationId: attachments.applicationId,
-      })
-      .from(attachments)
-      .where(
-        and(
-          inArray(
-            attachments.applicationId,
-            rows.map((row) => row.applicationId),
-          ),
-          eq(attachments.kind, "cv"),
-        ),
-      )
-      .orderBy(desc(attachments.createdAt));
-
-    // Rows are newest first. Keep the first CV for each application.
-    for (const cv of cvRows) {
-      if (cv.applicationId && !cvByApplication.has(cv.applicationId)) {
-        cvByApplication.set(cv.applicationId, cv.id);
-      }
-    }
-  }
-
-  const groups = new Map<string, AssignedStageQueue>();
-
-  for (const row of rows) {
-    const key = `${row.positionId}:${row.stageId}`;
-    const group = groups.get(key) ?? {
-      key,
-      positionId: row.positionId,
-      positionTitle: row.positionTitle,
-      stageId: row.stageId,
-      stageName: row.stageName,
-      stageOrder: row.stageOrder,
-      candidates: [],
-    };
-
-    group.candidates.push({
-      applicationId: row.applicationId,
-      candidateId: row.candidateId,
-      candidateName: row.candidateName,
-      candidateTitle: row.candidateTitle,
-      positionId: row.positionId,
-      positionTitle: row.positionTitle,
-      stageId: row.stageId,
-      stageName: row.stageName,
-      stageOrder: row.stageOrder,
-      enteredAt: row.enteredAt,
-      pace: paceFor(row.enteredAt, now),
-      feedbackStatus: row.submittedScorecardId ? "submitted" : "awaiting",
-      cvAttachmentId: cvByApplication.get(row.applicationId) ?? null,
-    });
-
-    groups.set(key, group);
-  }
-
-  return Array.from(groups.values());
-}
-
-/**
- * Active assignments that still need this viewer's submitted scorecard.
- *
- * Drafts intentionally remain outstanding: the left join only matches a
- * submitted scorecard by this viewer for this exact application-stage.
- */
-export async function countOutstandingFeedback(userId: string) {
-  const [row] = await db
-    .select({ total: count() })
-    .from(applications)
-    .innerJoin(
-      positionStageInterviewers,
-      and(
-        eq(
-          positionStageInterviewers.positionStageId,
-          applications.currentStageId,
-        ),
-        eq(positionStageInterviewers.userId, userId),
-      ),
-    )
-    .innerJoin(
-      applicationStages,
-      and(
-        eq(applicationStages.applicationId, applications.id),
-        eq(applicationStages.positionStageId, applications.currentStageId),
-      ),
-    )
-    .leftJoin(
-      scorecards,
-      and(
-        eq(scorecards.applicationStageId, applicationStages.id),
-        eq(scorecards.authorId, userId),
-        eq(scorecards.status, "submitted"),
-      ),
-    )
-    .where(and(eq(applications.status, "active"), isNull(scorecards.id)));
-
-  return row?.total ?? 0;
 }
 
 /** Stage ids on a given application that this interviewer is responsible for. */
