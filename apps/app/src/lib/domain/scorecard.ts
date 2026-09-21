@@ -34,5 +34,7 @@ export function calculateWeightedScore(
     totalWeight += weight;
   }
 
-  return totalWeight === 0 ? null : weightedTotal / totalWeight;
+  return totalWeight === 0
+    ? null
+    : Math.round((weightedTotal / totalWeight) * 100) / 100;
 }

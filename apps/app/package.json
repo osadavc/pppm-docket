@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "check-types": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:feedback": "bun test src/lib/domain/advancement.test.ts src/lib/domain/scorecard.test.ts",
+    "test:navigation": "bun test src/components/layout/nav-config.test.ts",
     "test:queue": "bun --env-file=.env.local --conditions=react-server test src/lib/queries/queue.integration.test.ts",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
@@ -43,6 +46,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

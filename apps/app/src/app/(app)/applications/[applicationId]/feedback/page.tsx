@@ -3,9 +3,18 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { forbidden, notFound } from "next/navigation";
 import { z } from "zod";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { FeedbackForm } from "@/components/applications/feedback-form";
 import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/guards";
+import { getApplicationTimeline } from "@/lib/queries/activity";
 import { getFeedbackContext } from "@/lib/queries/feedback";
 
 export const metadata: Metadata = { title: "Feedback · Docket" };
@@ -21,6 +30,10 @@ export default async function FeedbackPage({
 
   const context = await getFeedbackContext(viewer.id, applicationId);
   if (!context) forbidden();
+  const submitted = context.scorecard?.status === "submitted";
+  const timeline = submitted
+    ? await getApplicationTimeline(applicationId, viewer)
+    : [];
 
   return (
     <>
@@ -34,24 +47,14 @@ export default async function FeedbackPage({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
-              Feedback for {context.candidateName}
+              Your feedback — {context.stageName}
             </h1>
             <p className="text-muted-foreground text-sm">
-              {context.positionTitle} · {context.stageName}
+              {context.candidateName} · {context.positionTitle}
             </p>
           </div>
-          <Badge
-            variant={
-              context.scorecard?.status === "submitted"
-                ? "outline"
-                : "secondary"
-            }
-          >
-            {context.scorecard?.status === "submitted"
-              ? "Feedback submitted"
-              : context.scorecard
-                ? "Draft"
-                : "Not started"}
+          <Badge variant={submitted ? "outline" : "secondary"}>
+            {submitted ? "Submitted" : "Feedback due"}
           </Badge>
         </div>
         {context.stageDescription ? (
@@ -61,7 +64,33 @@ export default async function FeedbackPage({
         ) : null}
       </div>
 
-      <FeedbackForm context={context} />
+      {submitted ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Feedback submitted</CardTitle>
+              <CardDescription>
+                Your scorecard is recorded. Peer feedback for this stage is now
+                visible according to Docket&apos;s feedback rules.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Application history</CardTitle>
+              <CardDescription>
+                Stage activity and feedback you are authorized to view.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ActivityTimeline entries={timeline} />
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <FeedbackForm context={context} />
+      )}
     </>
   );
 }

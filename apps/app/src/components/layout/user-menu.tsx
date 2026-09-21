@@ -60,7 +60,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
                   {ROLE_LABELS[user.role]}
                 </span>
               </span>
-              <ChevronsUpDown className="ml-auto size-4" />
+              <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
 
@@ -74,6 +74,9 @@ export function UserMenu({ user }: { user: SessionUser }) {
               <span className="block truncate font-medium">{user.name}</span>
               <span className="text-muted-foreground block truncate text-xs">
                 {user.email}
+              </span>
+              <span className="text-muted-foreground mt-1 block text-xs">
+                {ROLE_LABELS[user.role]}
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

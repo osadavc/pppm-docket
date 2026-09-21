@@ -1,7 +1,6 @@
 "use server";
 
 import { and, desc, eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db/client";
 import {
@@ -25,7 +24,7 @@ import {
 import { fail, ok, type ActionResult } from "./result";
 
 export type SaveScorecardResult = ActionResult<{
-  status: "draft" | "submitted";
+  status: "submitted";
   revised: boolean;
   changed: boolean;
   revisionNumber: number;
@@ -147,37 +146,29 @@ export async function saveScorecard(
   const isRevision = input.intent === "revise";
 
   if (context.scorecard?.status === "submitted" && !isRevision) {
-    return fail("Submitted feedback must be saved as an audited revision.");
+    return fail("You already submitted feedback.");
   }
   if (context.scorecard?.status !== "submitted" && isRevision) {
     return fail("Only submitted feedback can be revised.");
   }
 
-  if (input.intent !== "draft") {
-    if (!input.recommendation) {
-      return fail("Choose an overall recommendation before submitting.", {
-        recommendation: ["Choose a recommendation"],
-      });
-    }
-
-    const unrated = context.criteria.filter(
-      (criterion) =>
-        !input.ratings.find(
-          (rating) =>
-            rating.criterionId === criterion.id && rating.rating !== null,
-        ),
+  const unrated = context.criteria.filter(
+    (criterion) =>
+      !input.ratings.find(
+        (rating) =>
+          rating.criterionId === criterion.id && rating.rating !== null,
+      ),
+  );
+  if (unrated.length > 0) {
+    return fail(
+      `Rate every criterion before submitting. Still needed: ${unrated.map((criterion) => criterion.label).join(", ")}.`,
+      Object.fromEntries(
+        unrated.map((criterion) => [
+          `rating.${criterion.id}`,
+          ["Choose a rating from 1 to 5"],
+        ]),
+      ),
     );
-    if (unrated.length > 0) {
-      return fail(
-        `Rate every criterion before submitting. Still needed: ${unrated.map((criterion) => criterion.label).join(", ")}.`,
-        Object.fromEntries(
-          unrated.map((criterion) => [
-            `rating.${criterion.id}`,
-            ["Choose a rating from 1 to 5"],
-          ]),
-        ),
-      );
-    }
   }
 
   const rated = input.ratings.filter(
@@ -189,10 +180,7 @@ export async function saveScorecard(
     rating: rating.rating,
     comment: rating.comment || null,
   }));
-  const weightedScore =
-    input.intent !== "draft"
-      ? calculateWeightedScore(context.criteria, rated)
-      : null;
+  const weightedScore = calculateWeightedScore(context.criteria, rated);
   const now = new Date();
 
   let outcome: {
@@ -259,20 +247,13 @@ export async function saveScorecard(
       if (!eligible) throw new ScorecardNotEligibleError();
 
       const scorecardValues = {
-        status:
-          input.intent !== "draft"
-            ? ("submitted" as const)
-            : ("draft" as const),
+        status: "submitted" as const,
         recommendation: input.recommendation,
         overallScore: weightedScore === null ? null : weightedScore.toFixed(2),
         strengths: input.strengths || null,
         concerns: input.concerns || null,
         notes: input.notes || null,
-        ...(input.intent === "submit"
-          ? { submittedAt: now }
-          : input.intent === "draft"
-            ? { submittedAt: null }
-            : {}),
+        ...(input.intent === "submit" ? { submittedAt: now } : {}),
       };
 
       let scorecardId = context.scorecard?.id;
@@ -401,7 +382,7 @@ export async function saveScorecard(
             )
             .returning({ id: scorecards.id });
           if (!updated) throw new ScorecardAlreadySubmittedError();
-          if (input.intent === "submit") revisionNumber = 1;
+          revisionNumber = 1;
         }
       } else {
         if (isRevision) throw new ScorecardRevisionUnavailableError();
@@ -423,7 +404,7 @@ export async function saveScorecard(
           scorecardId = inserted.id;
         } else {
           // A concurrent request created the unique row after the page load.
-          // Only a still-draft row may be updated.
+          // Only a legacy draft may be converted; a submitted row is refused.
           const [updated] = await tx
             .update(scorecards)
             .set(scorecardValues)
@@ -440,7 +421,7 @@ export async function saveScorecard(
           scorecardId = updated.id;
         }
 
-        if (input.intent === "submit") revisionNumber = 1;
+        revisionNumber = 1;
       }
 
       await tx
@@ -508,6 +489,24 @@ export async function saveScorecard(
         });
       }
 
+      if (input.intent === "submit") {
+        await logActivity(tx, {
+          actorId: actor.id,
+          action: "scorecard.submitted",
+          entityType: "scorecard",
+          entityId: scorecardId,
+          applicationId,
+          positionId: context.positionId,
+          summary: `${actor.name} submitted feedback for “${context.stageName}”`,
+          metadata: {
+            applicationStageId: eligible.applicationStageId,
+            stageId: context.stageId,
+            stageName: context.stageName,
+            submittedAt: now.toISOString(),
+          },
+        });
+      }
+
       return { changed: true, revisionNumber };
     });
   } catch (error) {
@@ -517,9 +516,7 @@ export async function saveScorecard(
       );
     }
     if (error instanceof ScorecardAlreadySubmittedError) {
-      return fail(
-        "This feedback was already submitted. Refresh to edit it as an audited revision.",
-      );
+      return fail("You already submitted feedback.");
     }
     if (error instanceof ScorecardRevisionUnavailableError) {
       return fail(
@@ -534,11 +531,8 @@ export async function saveScorecard(
     throw error;
   }
 
-  revalidatePath("/queue");
-  revalidatePath(`/applications/${applicationId}`);
-  revalidatePath(`/applications/${applicationId}/feedback`);
   return ok({
-    status: input.intent === "draft" ? "draft" : "submitted",
+    status: "submitted",
     revised: isRevision && outcome.changed,
     changed: outcome.changed,
     revisionNumber: outcome.revisionNumber,

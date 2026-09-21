@@ -111,6 +111,7 @@ export async function getFeedbackContext(
       and(
         eq(applications.id, applicationId),
         eq(applications.status, "active"),
+        eq(applicationStages.status, "in_progress"),
       ),
     )
     .limit(1);

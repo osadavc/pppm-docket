@@ -24,7 +24,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { PaceBadge } from "@/components/pipeline/pace-badge";
-import { requireUser } from "@/lib/auth/guards";
+import { requirePermission } from "@/lib/auth/guards";
 import { GATE_EXPLANATIONS } from "@/lib/domain/advancement";
 import {
   getMyQueue,
@@ -219,7 +219,7 @@ export default async function QueuePage({
 }: {
   searchParams: Promise<{ page?: string | string[] }>;
 }) {
-  const viewer = await requireUser("/queue");
+  const viewer = await requirePermission("queue:view");
   const { page: pageParam } = await searchParams;
   const queue = await getMyQueue(viewer.id, parsePage(pageParam));
 
