@@ -87,6 +87,8 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
       const emailResult =
         result.data.notificationStatus === "sent"
           ? " and emailed"
+          : result.data.notificationStatus === "demo"
+            ? "; email recorded as demo"
           : result.data.notificationStatus === "queued"
             ? "; email queued"
             : "";

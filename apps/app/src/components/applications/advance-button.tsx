@@ -87,6 +87,8 @@ export function AdvanceButton({
       const emailResult =
         result.data.notificationStatus === "sent"
           ? " and emailed the candidate"
+          : result.data.notificationStatus === "demo"
+            ? "; candidate email recorded as demo"
           : result.data.notificationStatus === "queued"
             ? "; candidate email queued"
             : "";

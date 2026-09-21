@@ -73,7 +73,8 @@ export default async function ApplicationPage({
         <CardHeader>
           <CardTitle>History</CardTitle>
           <CardDescription>
-            Stage changes, interview feedback and email, in one order.
+            Stage changes, interview feedback and candidate communication, in
+            one order.
             {seesEverything
               ? null
               : " You see feedback from others once you have submitted your own for that stage."}

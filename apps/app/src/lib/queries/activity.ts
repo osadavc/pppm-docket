@@ -20,6 +20,20 @@ import { interviewerCanViewApplication } from "./stage-interviewers";
 
 export type TimelineKind = "stage" | "feedback" | "email";
 
+export type CommunicationSnapshot = {
+  recipientEmail: string;
+  deliveryEmail: string | null;
+  subject: string;
+  body: string;
+  status: "queued" | "dispatching" | "demo" | "sent" | "failed";
+  attemptCount: number;
+  providerMessageId: string | null;
+  createdAt: Date;
+  lastAttemptAt: Date | null;
+  sentAt: Date | null;
+  error: string | null;
+};
+
 export type TimelineEntry = {
   id: string;
   kind: TimelineKind;
@@ -30,6 +44,8 @@ export type TimelineEntry = {
   detail: string | null;
   /** Only ever set for entries the viewer is entitled to see in full. */
   meta: Record<string, unknown> | null;
+  /** Immutable rendered email and delivery facts, after server authorization. */
+  communication: CommunicationSnapshot | null;
 };
 
 export type ApplicationHeader = {
@@ -114,7 +130,7 @@ function activityDetail(metadata: unknown): string | null {
 
 /**
  * The merged history of an application: stage transitions, interview feedback
- * and sent email, in one order.
+ * and candidate communication, in one order.
  *
  * Visibility is applied at the server data boundary rather than by hiding rows
  * in the UI. For an interviewer that means three separate rules:
@@ -208,14 +224,29 @@ export async function getApplicationTimeline(
         id: notifications.id,
         at: notifications.createdAt,
         sentAt: notifications.sentAt,
-        type: notifications.type,
         subject: notifications.subject,
         status: notifications.status,
+        body: notifications.body,
         recipientEmail: notifications.recipientEmail,
-        recipientUserId: notifications.recipientUserId,
+        deliveryEmail: notifications.deliveryEmail,
+        providerMessageId: notifications.providerMessageId,
+        error: notifications.error,
+        attemptCount: notifications.attemptCount,
+        lastAttemptAt: notifications.lastAttemptAt,
+        actorName: user.name,
       })
       .from(notifications)
-      .where(eq(notifications.applicationId, applicationId)),
+      .leftJoin(user, eq(user.id, notifications.initiatedById))
+      .where(
+        and(
+          eq(notifications.applicationId, applicationId),
+          // Candidate mail has no recipientUserId. Keeping this condition in
+          // SQL means its rendered body never enters an interviewer response.
+          seesEverything
+            ? undefined
+            : eq(notifications.recipientUserId, viewer.id),
+        ),
+      ),
   ]);
 
   const entries: TimelineEntry[] = [];
@@ -252,6 +283,7 @@ export async function getApplicationTimeline(
       meta: seesEverything
         ? (r.metadata as Record<string, unknown> | null)
         : null,
+      communication: null,
     });
   }
 
@@ -276,21 +308,53 @@ export async function getApplicationTimeline(
           .filter(Boolean)
           .join(" · ") || null,
       meta: null,
+      communication: null,
     });
   }
 
   for (const e of emailRows) {
-    // An interviewer sees only mail addressed to them.
-    if (!seesEverything && e.recipientUserId !== viewer.id) continue;
+    const emailDetail = (() => {
+      if (e.status === "sent") {
+        return `Sent to ${e.deliveryEmail ?? e.recipientEmail}`;
+      }
+      if (e.status === "demo") {
+        return e.sentAt
+          ? `Demo delivered to ${e.deliveryEmail ?? "the configured inbox"} · intended for ${e.recipientEmail}`
+          : `Demo only — no external delivery${e.deliveryEmail && e.deliveryEmail !== e.recipientEmail ? ` · demo recipient ${e.deliveryEmail}` : ""} · intended for ${e.recipientEmail}`;
+      }
+      if (e.status === "failed") {
+        const attempts = `${e.attemptCount} attempt${e.attemptCount === 1 ? "" : "s"}`;
+        return `Failed for ${e.recipientEmail} · ${attempts}${e.error ? ` · ${e.error}` : ""}`;
+      }
+      if (e.status === "dispatching") {
+        return `Dispatching to ${e.deliveryEmail ?? e.recipientEmail}`;
+      }
+      return `Queued for ${e.recipientEmail}`;
+    })();
 
     entries.push({
       id: `email-${e.id}`,
       kind: "email",
-      at: e.sentAt ?? e.at,
-      actorName: null,
+      // This is the time the named actor initiated the communication. Outcome
+      // timestamps remain available in the inspectable delivery facts below.
+      at: e.at,
+      actorName: e.actorName,
       title: e.subject,
-      detail: `${e.status === "sent" ? "Sent to" : `${e.status} —`} ${e.recipientEmail}`,
+      detail: emailDetail,
       meta: null,
+      communication: {
+        recipientEmail: e.recipientEmail,
+        deliveryEmail: e.deliveryEmail,
+        subject: e.subject,
+        body: e.body,
+        status: e.status,
+        attemptCount: e.attemptCount,
+        providerMessageId: e.providerMessageId,
+        createdAt: e.at,
+        lastAttemptAt: e.lastAttemptAt,
+        sentAt: e.sentAt,
+        error: e.error,
+      },
     });
   }
 
