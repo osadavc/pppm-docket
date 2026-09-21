@@ -30,6 +30,12 @@ export const userDomainRelations = relations(user, ({ many }) => ({
   interviewParticipations: many(interviewParticipants),
   scorecardsAuthored: many(scorecards),
   scorecardRevisionsAuthored: many(scorecardRevisions),
+  notificationsReceived: many(notifications, {
+    relationName: "notificationRecipientUser",
+  }),
+  notificationsInitiated: many(notifications, {
+    relationName: "notificationInitiatedBy",
+  }),
   activity: many(activityLog),
 }));
 
@@ -332,6 +338,12 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   recipientUser: one(user, {
     fields: [notifications.recipientUserId],
     references: [user.id],
+    relationName: "notificationRecipientUser",
+  }),
+  initiatedBy: one(user, {
+    fields: [notifications.initiatedById],
+    references: [user.id],
+    relationName: "notificationInitiatedBy",
   }),
   recipientCandidate: one(candidates, {
     fields: [notifications.recipientCandidateId],

@@ -6,6 +6,7 @@ export type CandidateEmailDraft = {
 export type CandidateEmailDeliveryStatus =
   | "not_requested"
   | "queued"
+  | "demo"
   | "sent"
   | "failed";
 
