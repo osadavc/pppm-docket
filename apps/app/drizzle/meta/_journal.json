@@ -78,6 +78,20 @@
       "when": 1789805663875,
       "tag": "0010_scorecard_revisions",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789892765076,
+      "tag": "0011_notification_outbox_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789893294998,
+      "tag": "0012_notification_delivery_outcomes",
+      "breakpoints": true
     }
   ]
 }
