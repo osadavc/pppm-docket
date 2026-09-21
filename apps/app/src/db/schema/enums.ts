@@ -136,6 +136,8 @@ export const notificationType = pgEnum("notification_type", [
 
 export const notificationStatus = pgEnum("notification_status", [
   "queued",
+  "dispatching",
+  "demo",
   "sent",
   "failed",
 ]);
