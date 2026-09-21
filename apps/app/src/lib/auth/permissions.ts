@@ -18,7 +18,6 @@ export const PERMISSIONS = {
   "position:stages:manage": ["management"],
   "position:submit": ["hr"],
   "position:approve": ["management"],
-  "template:manage": ["hr"],
   "template:view": ["hr", "management"],
   "candidate:view": ["hr", "management"],
   "candidate:manage": ["hr"],
@@ -32,7 +31,6 @@ export const PERMISSIONS = {
    * separate from "application:manage".
    */
   "application:override-flow": ["management"],
-  "interview:view": ["hr", "management"],
   "interview:manage": ["hr"],
   "scorecard:read-all": ["hr", "management"],
   "comparison:view": ["hr", "management"],
@@ -41,7 +39,7 @@ export const PERMISSIONS = {
   "report:export": ["hr", "management"],
   "activity:view-global": ["management"],
   "user:manage": ["management"],
-  "notification:view": ["management"],
+  "queue:view": ["hr", "interviewer", "management"],
 } as const satisfies Record<string, readonly UserRole[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
