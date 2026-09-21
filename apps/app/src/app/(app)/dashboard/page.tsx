@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/guards";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/auth/roles";
-import { countOutstandingFeedback } from "@/lib/queries/stage-interviewers";
+import { countOutstandingFeedback } from "@/lib/queries/queue";
 
 export const metadata: Metadata = { title: "Dashboard · Docket" };
 
@@ -32,7 +32,7 @@ export default async function DashboardPage() {
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
         <Card className="gap-0 py-0">
           <Link
-            href="/agenda"
+            href="/queue"
             className="group grid gap-5 rounded-xl p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center"
           >
             <span className="bg-primary text-primary-foreground flex size-11 items-center justify-center rounded-lg">
