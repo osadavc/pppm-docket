@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
 import type { StaffAccount } from "@/lib/queries/users";
+import { ScrollX } from "@/components/ui/scroll-x";
 
 export function UserTable({
   users,
@@ -30,7 +31,7 @@ export function UserTable({
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="overflow-x-auto">
+      <ScrollX>
         <Table>
           <TableHeader>
             <TableRow>
@@ -80,7 +81,7 @@ export function UserTable({
             ))}
           </TableBody>
         </Table>
-      </div>
+      </ScrollX>
     </Card>
   );
 }

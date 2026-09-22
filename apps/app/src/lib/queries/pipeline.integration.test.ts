@@ -31,10 +31,10 @@ test(
     const seeded = await db
       .select({ id: user.id, email: user.email })
       .from(user)
-      .where(inArray(user.email, ["hr@docket.test", "eng.lead@docket.test", "dev1@docket.test"]));
-    const hr = seeded.find((u) => u.email === "hr@docket.test");
-    const lead = seeded.find((u) => u.email === "eng.lead@docket.test");
-    const dev = seeded.find((u) => u.email === "dev1@docket.test");
+      .where(inArray(user.email, ["hr@example.com", "eng.lead@example.com", "dev1@example.com"]));
+    const hr = seeded.find((u) => u.email === "hr@example.com");
+    const lead = seeded.find((u) => u.email === "eng.lead@example.com");
+    const dev = seeded.find((u) => u.email === "dev1@example.com");
     if (!hr || !lead || !dev) throw new Error("Run `bun run db:seed` first.");
 
     const marker = crypto.randomUUID();

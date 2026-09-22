@@ -2,7 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -100,11 +99,9 @@ export function SignInForm({
           <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Signing in…" : "Sign in"}
           </Button>
-          <p className="text-muted-foreground text-sm">
-            No account?{" "}
-            <Link href="/sign-up" className="text-foreground underline underline-offset-4">
-              Create one
-            </Link>
+          <p className="text-muted-foreground text-center text-sm">
+            Accounts are created by your hiring manager — there is no public
+            sign-up.
           </p>
         </CardFooter>
       </form>

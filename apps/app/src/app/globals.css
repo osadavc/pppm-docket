@@ -131,3 +131,16 @@
     @apply font-sans;
   }
 }
+
+/* Wide tables: keep the scrollbar visible so the overflow is discoverable. */
+.scroll-x {
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+.scroll-x::-webkit-scrollbar {
+  height: 8px;
+}
+.scroll-x::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--foreground) 25%, transparent);
+  border-radius: 9999px;
+}

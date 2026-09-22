@@ -19,6 +19,8 @@ import {
   getFeedbackContext,
   getScorecardEditContext,
 } from "@/lib/queries/feedback";
+import { parseUuidParam } from "@/lib/validation/params";
+import { applicationExists } from "@/lib/queries/activity";
 
 export const metadata: Metadata = { title: "Feedback · Docket" };
 
@@ -30,9 +32,11 @@ export default async function FeedbackPage({
   searchParams: Promise<{ scorecard?: string }>;
 }) {
   const viewer = await requireUser();
-  const { applicationId } = await params;
+  const applicationId = parseUuidParam((await params).applicationId);
   const { scorecard: scorecardId } = await searchParams;
-  if (!z.uuid().safeParse(applicationId).success) notFound();
+  // A link to an application that does not exist is "not found"; one that
+  // exists but is not this viewer's to assess is "forbidden".
+  if (!(await applicationExists(applicationId))) notFound();
 
   const context = scorecardId
     ? z.uuid().safeParse(scorecardId).success

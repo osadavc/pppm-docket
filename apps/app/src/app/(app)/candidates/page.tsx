@@ -28,6 +28,7 @@ import {
   parseCandidateSearch,
 } from "@/lib/validation/candidate-search";
 import { CANDIDATE_SOURCE_LABELS } from "@/lib/validation/candidate";
+import { ScrollX } from "@/components/ui/scroll-x";
 
 export const metadata: Metadata = { title: "Candidates · Docket" };
 
@@ -76,7 +77,7 @@ export default async function CandidatesPage({
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
+          <ScrollX>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -158,7 +159,7 @@ export default async function CandidatesPage({
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </ScrollX>
         </Card>
       )}
 

@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { test, expect, type Page } from "@playwright/test";
+import { cleanupLeftovers, createStaffUser, db, TEST_PASSWORD, type Role } from "./fixtures";
 import { and, eq, inArray } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import {
   activityLog,
   applications,
@@ -18,10 +17,6 @@ import {
   user,
 } from "@/db/schema";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL is required for Playwright.");
-const sql = postgres(databaseUrl, { prepare: false });
-const db = drizzle(sql);
 
 let positionId: string;
 let candidateId: string;
@@ -33,12 +28,12 @@ let criterionId: string;
 let hrEmail: string;
 let interviewerEmail: string;
 const testUserIds: string[] = [];
-const testPassword = "ScorecardE2E!2026";
+
 
 async function signIn(page: Page, email: string) {
   await page.goto("/sign-in");
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(testPassword);
+  await page.getByLabel("Password").fill(TEST_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Signed in", { exact: true })).toBeVisible();
   await page.goto("/dashboard");
@@ -54,39 +49,16 @@ async function completeFeedback(page: Page) {
 }
 
 test.beforeAll(async () => {
+  await cleanupLeftovers();
   const marker = crypto.randomUUID();
   hrEmail = `scorecard-e2e-hr-${marker}@docket.test`;
   interviewerEmail = `scorecard-e2e-interviewer-${marker}@docket.test`;
   const peerEmail = `scorecard-e2e-peer-${marker}@docket.test`;
 
-  async function createTestUser(
-    email: string,
-    name: string,
-    role: "hr" | "interviewer",
-  ) {
-    const response = await fetch(
-      "http://localhost:3000/api/auth/sign-up/email",
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          origin: "http://localhost:3000",
-        },
-        body: JSON.stringify({ email, name, password: testPassword }),
-      },
-    );
-    if (!response.ok) {
-      throw new Error(`Could not create synthetic ${role}: ${response.status}`);
-    }
-
-    const [created] = await db
-      .update(user)
-      .set({ role, emailVerified: true, isActive: true })
-      .where(eq(user.email, email))
-      .returning({ id: user.id });
-    assert.ok(created);
-    testUserIds.push(created.id);
-    return created.id;
+  async function createTestUser(email: string, name: string, role: Role) {
+    const id = await createStaffUser(email, name, role);
+    testUserIds.push(id);
+    return id;
   }
 
   const hrId = await createTestUser(hrEmail, "Scorecard E2E HR", "hr");
@@ -227,7 +199,6 @@ test.afterAll(async () => {
   if (testUserIds.length > 0) {
     await db.delete(user).where(inArray(user.id, testUserIds));
   }
-  await sql.end();
 });
 
 test("submit, revise with immutable history, clear the gate, and advance", async ({
@@ -272,9 +243,10 @@ test("submit, revise with immutable history, clear the gate, and advance", async
     .getByLabel("Strengths")
     .fill("The candidate connected new evidence to a clear decision.");
   await page.getByRole("button", { name: "Save changes" }).click();
+  // Save + revision + timeline refresh against the remote database.
   await expect(
     page.getByText("Feedback updated.", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
 
   await staleEditPage
     .getByLabel("Strengths")
@@ -297,9 +269,10 @@ test("submit, revise with immutable history, clear the gate, and advance", async
     .getByLabel("Notes")
     .fill("This second correction adds the final interview context.");
   await page.getByRole("button", { name: "Save changes" }).click();
+  // Save + revision + timeline refresh against the remote database.
   await expect(
     page.getByText("Feedback updated.", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
 
   await stalePage.getByRole("button", { name: "Submit feedback" }).click();
   await expect(

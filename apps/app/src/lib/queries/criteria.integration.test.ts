@@ -28,10 +28,10 @@ test("criterion rename/deactivate never relabels submitted ratings", { timeout: 
   const seeded = await db
     .select({ id: user.id, name: user.name, email: user.email, role: user.role })
     .from(user)
-    .where(inArray(user.email, ["hr@docket.test", "eng.lead@docket.test", "dev1@docket.test"]));
-  const hr = seeded.find((u) => u.email === "hr@docket.test");
-  const lead = seeded.find((u) => u.email === "eng.lead@docket.test");
-  const peer = seeded.find((u) => u.email === "dev1@docket.test");
+    .where(inArray(user.email, ["hr@example.com", "eng.lead@example.com", "dev1@example.com"]));
+  const hr = seeded.find((u) => u.email === "hr@example.com");
+  const lead = seeded.find((u) => u.email === "eng.lead@example.com");
+  const peer = seeded.find((u) => u.email === "dev1@example.com");
   if (!hr || !lead || !peer) throw new Error("Run `bun run db:seed` first.");
   const hrSession: SessionUser = { id: hr.id, name: hr.name, email: hr.email, role: "hr", isActive: true };
 

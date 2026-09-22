@@ -23,6 +23,7 @@ import {
   parsePositionListSearch,
   POSITION_STATUS_PILLS,
 } from "@/lib/validation/position-list";
+import { ScrollX } from "@/components/ui/scroll-x";
 
 export const metadata: Metadata = { title: "Positions · Docket" };
 
@@ -78,7 +79,7 @@ export default async function PositionsPage({
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
+          <ScrollX>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -108,7 +109,7 @@ export default async function PositionsPage({
                     <TableCell className="text-right tabular-nums">{p.stageCount}</TableCell>
                     <TableCell className="text-right tabular-nums">{p.candidateCount}</TableCell>
                     <TableCell className="text-muted-foreground text-right tabular-nums">
-                      {p.onHoldCount || "—"}
+                      {p.onHoldCount}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(p.applicationDeadline)}
@@ -117,7 +118,7 @@ export default async function PositionsPage({
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </ScrollX>
         </Card>
       )}
 

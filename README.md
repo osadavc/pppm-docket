@@ -214,6 +214,31 @@ environment budget to watch, not a universal threshold.
   guards treat an inactive user as signed out everywhere, including
   `/api/files`. Deactivated panel members render struck through.
 
+### Accounts, safe URLs and demo data
+
+- **No public sign-up.** `/sign-up` is gone, `emailAndPassword.disableSignUp`
+  refuses `POST /api/auth/sign-up/email`, and the sign-in page says so.
+  Accounts are created by management (Users → New account) or by the seed.
+- **Malformed links are 404s.** Every record route runs its id through
+  `parseUuidParam` (`src/lib/validation/params.ts`) before touching the
+  database; the app error boundary shows generic copy with a reference digest
+  and never `error.message`.
+- **Demo seed.** `bun run db:seed` (idempotent; `--reset` truncates first)
+  builds a believable scenario: five staff accounts, an open Senior Backend
+  Engineer role with ~40 applications across stages (green/amber/red pace,
+  mixed careers-site/referral/manual sources, generated one-page PDF CVs in
+  the private bucket when storage is configured — otherwise a warning and no
+  attachments), submitted scorecards including one revised card and a
+  deliberately gate-blocked Team Interview, eight rejections across reasons
+  (half with simulated emails), plus pending, draft (sent back once) and
+  filled positions. All people are fictional (`@example.com`).
+
+  | Role | Email | Password |
+  | --- | --- | --- |
+  | HR | hr@example.com | `SEED_PASSWORD` (default `Password123!`) |
+  | Management | manager@example.com | same |
+  | Interviewer | eng.lead@example.com, dev1@example.com, ops.lead@example.com | same |
+
 ### Test scripts
 
 ```
@@ -225,5 +250,9 @@ bun run test:pipeline      # bounded board, review queue, dashboard counts at 1,
 bun run test:analytics     # KPI / funnel / drop-out / time-to-fill on a controlled fixture
 bun run test:criteria      # criterion rename/deactivate never touches submitted ratings
 bun run test:queue / test:scorecards
-bun run test:e2e           # Playwright: scorecard flow, application page + analytics per role, account deactivation
+bun run test:e2e           # Playwright, everything: auth (closed sign-up, login/logout/persistence, manager provisioning),
+                           #   route safety (malformed/missing/forbidden per family), scorecard flow, application page per role,
+                           #   deactivation, intake + file access, public careers + acknowledgement, free-form email,
+                           #   seeded board/review/list/dashboard/analytics, approval history, criteria, mobile QA fixes
+bun run test:all           # unit + every integration suite + e2e
 ```

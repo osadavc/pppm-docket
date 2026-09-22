@@ -6,6 +6,7 @@ import { ReviewScreen } from "@/components/review/review-screen";
 import { requirePermission } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { getReviewQueue } from "@/lib/queries/pipeline";
+import { parseUuidParam } from "@/lib/validation/params";
 
 export const metadata: Metadata = { title: "Review · Docket" };
 
@@ -18,7 +19,7 @@ export default async function ReviewPage({
   params,
 }: PageProps<"/positions/[positionId]/review">) {
   const user = await requirePermission("position:view");
-  const { positionId } = await params;
+  const positionId = parseUuidParam((await params).positionId);
   const canDecide = can(user.role, "application:manage");
 
   const queue = await getReviewQueue(positionId, {

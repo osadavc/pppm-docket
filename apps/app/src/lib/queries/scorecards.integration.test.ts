@@ -33,11 +33,11 @@ test(
       .from(user)
       .where(
         inArray(user.email, [
-          "hr@docket.test",
-          "manager@docket.test",
-          "eng.lead@docket.test",
-          "dev1@docket.test",
-          "ops.lead@docket.test",
+          "hr@example.com",
+          "manager@example.com",
+          "eng.lead@example.com",
+          "dev1@example.com",
+          "ops.lead@example.com",
         ]),
       );
     const seededUser = (email: string) =>
@@ -50,11 +50,11 @@ test(
       return { ...row, role: row.role };
     };
 
-    const hr = asViewer("hr@docket.test");
-    const manager = asViewer("manager@docket.test");
-    const interviewer = asViewer("eng.lead@docket.test");
-    const peer = asViewer("dev1@docket.test");
-    const unassigned = asViewer("ops.lead@docket.test");
+    const hr = asViewer("hr@example.com");
+    const manager = asViewer("manager@example.com");
+    const interviewer = asViewer("eng.lead@example.com");
+    const peer = asViewer("dev1@example.com");
+    const unassigned = asViewer("ops.lead@example.com");
     const marker = crypto.randomUUID();
     const now = new Date();
 

@@ -1,16 +1,11 @@
 import assert from "node:assert/strict";
 import { test, expect, type Page } from "@playwright/test";
+import { cleanupLeftovers, createStaffUser, db, TEST_PASSWORD, type Role } from "./fixtures";
 import { eq, inArray } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { activityLog, attachments, session, user } from "@/db/schema";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL is required for Playwright.");
-const sql = postgres(databaseUrl, { prepare: false });
-const db = drizzle(sql);
 
-const testPassword = "DeactivateE2E!2026";
+
 const testUserIds: string[] = [];
 let managerEmail: string;
 let leaverEmail: string;
@@ -19,30 +14,20 @@ let leaverId: string;
 async function signIn(page: Page, email: string) {
   await page.goto("/sign-in");
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(testPassword);
+  await page.getByLabel("Password").fill(TEST_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
 test.beforeAll(async () => {
+  await cleanupLeftovers();
   const marker = crypto.randomUUID();
   managerEmail = `deact-e2e-mgmt-${marker}@docket.test`;
   leaverEmail = `deact-e2e-leaver-${marker}@docket.test`;
 
-  async function createTestUser(email: string, name: string, role: "management" | "interviewer") {
-    const response = await fetch("http://localhost:3000/api/auth/sign-up/email", {
-      method: "POST",
-      headers: { "content-type": "application/json", origin: "http://localhost:3000" },
-      body: JSON.stringify({ email, name, password: testPassword }),
-    });
-    if (!response.ok) throw new Error(`Could not create ${role}: ${response.status}`);
-    const [created] = await db
-      .update(user)
-      .set({ role, emailVerified: true, isActive: true })
-      .where(eq(user.email, email))
-      .returning({ id: user.id });
-    assert.ok(created);
-    testUserIds.push(created.id);
-    return created.id;
+  async function createTestUser(email: string, name: string, role: Role) {
+    const id = await createStaffUser(email, name, role);
+    testUserIds.push(id);
+    return id;
   }
   await createTestUser(managerEmail, "Deact E2E Manager", "management");
   leaverId = await createTestUser(leaverEmail, "Deact E2E Leaver", "interviewer");
@@ -53,7 +38,6 @@ test.afterAll(async () => {
     await db.delete(activityLog).where(inArray(activityLog.entityId, testUserIds));
     await db.delete(user).where(inArray(user.id, testUserIds));
   }
-  await sql.end();
 });
 
 test("deactivation revokes live sessions, refuses sign-in and file access; reactivation restores", async ({ browser }) => {
@@ -75,13 +59,13 @@ test("deactivation revokes live sessions, refuses sign-in and file access; react
   await signIn(manager, managerEmail);
   await expect(manager.getByText("Signed in", { exact: true })).toBeVisible();
   await manager.goto("/admin/users");
-  const row = manager.getByRole("row", { name: /Deact E2E Leaver/ });
+  const row = manager.getByRole("row", { name: new RegExp(leaverEmail) });
   await expect(row).toContainText("Active");
   await row.getByRole("button", { name: "Actions for Deact E2E Leaver" }).click();
   await manager.getByRole("menuitem", { name: "Deactivate account" }).click();
   await manager.getByRole("button", { name: "Deactivate", exact: true }).click();
   await expect(manager.getByText(/is deactivated and signed out everywhere/)).toBeVisible();
-  await expect(manager.getByRole("row", { name: /Deact E2E Leaver/ })).toContainText("Deactivated");
+  await expect(manager.getByRole("row", { name: new RegExp(leaverEmail) })).toContainText("Deactivated");
 
   const sessions = await db.select({ id: session.id }).from(session).where(eq(session.userId, leaverId));
   assert.equal(sessions.length, 0, "every session row deleted");
@@ -103,20 +87,17 @@ test("deactivation revokes live sessions, refuses sign-in and file access; react
 
   // Reactivate; sign-in works again.
   await manager.goto("/admin/users");
-  await manager.getByRole("row", { name: /Deact E2E Leaver/ }).getByRole("button", { name: "Actions for Deact E2E Leaver" }).click();
+  await manager.getByRole("row", { name: new RegExp(leaverEmail) }).getByRole("button", { name: "Actions for Deact E2E Leaver" }).click();
   await manager.getByRole("menuitem", { name: "Reactivate" }).click();
   await manager.getByRole("button", { name: "Reactivate", exact: true }).click();
   await expect(manager.getByText(/is active again/)).toBeVisible();
 
-  // better-auth rate-limits /sign-in/email to 3 requests per 10 s; this is
-  // the fourth sign-in of the test, so let the window pass first.
-  await leaver.waitForTimeout(11_000);
   await signIn(leaver, leaverEmail);
   await expect(leaver.getByText("Signed in", { exact: true })).toBeVisible();
 
   // Management cannot deactivate themselves: the menu item is disabled.
   await manager.goto("/admin/users");
-  await manager.getByRole("row", { name: /Deact E2E Manager/ }).getByRole("button", { name: "Actions for Deact E2E Manager" }).click();
+  await manager.getByRole("row", { name: new RegExp(managerEmail) }).getByRole("button", { name: "Actions for Deact E2E Manager" }).click();
   await expect(manager.getByRole("menuitem", { name: "Deactivate account" })).toHaveAttribute("aria-disabled", "true");
 
   await leaver.context().close();

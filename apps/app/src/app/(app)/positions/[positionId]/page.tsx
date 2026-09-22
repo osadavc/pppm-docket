@@ -38,6 +38,7 @@ import { getRejectionBreakdown } from "@/lib/queries/applications";
 import { getApprovalHistory, getPositionActivity } from "@/lib/queries/activity";
 import { ApprovalHistory } from "@/components/positions/approval-history";
 import { PositionActivity } from "@/components/positions/position-activity";
+import { parseUuidParam } from "@/lib/validation/params";
 
 export const metadata: Metadata = { title: "Position · Docket" };
 
@@ -45,7 +46,7 @@ export default async function PositionPage({
   params,
 }: PageProps<"/positions/[positionId]">) {
   const user = await requirePermission("position:view");
-  const { positionId } = await params;
+  const positionId = parseUuidParam((await params).positionId);
 
   const position = await getPosition(positionId);
   if (!position) notFound();

@@ -26,6 +26,13 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     // No verification mailer wired yet; sign-in works immediately.
     requireEmailVerification: false,
+    /**
+     * Accounts are provisioned by management (createStaffAccount) or the
+     * seed, both of which go through the internal adapter. The public
+     * sign-up endpoint is switched off so nobody can mint an account by
+     * visiting a URL.
+     */
+    disableSignUp: true,
   },
 
   user: {
@@ -77,6 +84,12 @@ export const auth = betterAuth({
       },
     },
   },
+
+  /**
+   * The built-in limiter (3 sign-ins per 10 s) stays on everywhere except
+   * the e2e server, which signs several synthetic users in back to back.
+   */
+  ...(process.env.AUTH_RATE_LIMIT === "off" ? { rateLimit: { enabled: false } } : {}),
 
   session: {
     expiresIn: 60 * 60 * 24 * 7,

@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { interviewerCanViewApplication } from "@/lib/queries/stage-interviewers";
 import { createCvSignedUrl } from "@/lib/storage/attachments";
+import { isUuid } from "@/lib/validation/params";
 
 /**
  * The only route to a stored file.
@@ -28,6 +29,11 @@ export async function GET(
   }
 
   const { attachmentId } = await params;
+  // A malformed id is simply a file that does not exist — after the auth
+  // check, so an anonymous probe learns nothing from the status code.
+  if (!isUuid(attachmentId)) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
 
   const attachment = await db.query.attachments.findFirst({
     where: eq(attachments.id, attachmentId),

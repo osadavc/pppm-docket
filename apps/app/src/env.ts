@@ -70,7 +70,7 @@ if (!parsed.success) {
     .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
     .join("\n");
   throw new Error(
-    `Invalid environment configuration. Check apps/app/.env.local:\n${issues}`,
+    `Invalid environment configuration. Check apps/app/.env.local — the file Next.js reads; a repo-root .env is ignored:\n${issues}`,
   );
 }
 

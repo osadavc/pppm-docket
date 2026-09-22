@@ -10,6 +10,7 @@ import {
   getStagePanels,
   listAssignableInterviewers,
 } from "@/lib/queries/stage-interviewers";
+import { parseUuidParam } from "@/lib/validation/params";
 
 export const metadata: Metadata = { title: "Interview stages · Docket" };
 
@@ -19,7 +20,7 @@ export default async function PositionStagesPage({
   // Management-only: the interview process for a role belongs to the manager
   // hiring for it.
   await requirePermission("position:stages:manage");
-  const { positionId } = await params;
+  const positionId = parseUuidParam((await params).positionId);
 
   const position = await getPosition(positionId);
   if (!position) notFound();

@@ -98,6 +98,15 @@ export async function canViewApplication(
   return interviewerCanViewApplication(viewer.id, applicationId);
 }
 
+export async function applicationExists(applicationId: string) {
+  const [row] = await db
+    .select({ id: applications.id })
+    .from(applications)
+    .where(eq(applications.id, applicationId))
+    .limit(1);
+  return Boolean(row);
+}
+
 export async function getApplicationHeader(
   applicationId: string,
 ): Promise<ApplicationHeader | null> {

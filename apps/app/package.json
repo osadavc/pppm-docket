@@ -25,7 +25,8 @@
     "test:unit": "bun test src/lib/domain src/lib/notifications src/lib/validation src/components/layout",
     "test:pipeline": "bun --env-file=.env.local --conditions=react-server test src/lib/queries/pipeline.integration.test.ts",
     "test:analytics": "bun --env-file=.env.local --conditions=react-server test src/lib/queries/analytics.integration.test.ts",
-    "test:criteria": "bun --env-file=.env.local --conditions=react-server test src/lib/queries/criteria.integration.test.ts"
+    "test:criteria": "bun --env-file=.env.local --conditions=react-server test src/lib/queries/criteria.integration.test.ts",
+    "test:all": "bun run test:unit && bun run test:decisions && bun run test:public-apply && bun run test:queue && bun run test:scorecards && bun run test:pipeline && bun run test:analytics && bun run test:criteria && bun run test:e2e"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

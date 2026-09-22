@@ -15,13 +15,14 @@ import { acceptsApplications } from "@/lib/domain/position-status";
 import { openingsLine } from "@/lib/domain/careers";
 import { EMPLOYMENT_TYPE_LABELS } from "@/lib/format";
 import { getPublicPosition } from "@/lib/queries/positions";
+import { parseUuidParam } from "@/lib/validation/params";
 
 export const metadata: Metadata = { title: "Role · Docket Careers" };
 
 export default async function CareersRolePage({
   params,
 }: PageProps<"/careers/[positionId]">) {
-  const { positionId } = await params;
+  const positionId = parseUuidParam((await params).positionId);
 
   // Returns nothing unless the position is open, so an unapproved role cannot
   // be reached even by guessing its id.
