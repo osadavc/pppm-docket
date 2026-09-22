@@ -36,3 +36,10 @@ export const setPasswordSchema = z.object({
 
 export type ChangeRoleInput = z.input<typeof changeRoleSchema>;
 export type SetPasswordInput = z.input<typeof setPasswordSchema>;
+
+export const setUserActiveSchema = z.object({
+  userId: z.string().min(1),
+  isActive: z.boolean(),
+});
+
+export type SetUserActiveInput = z.input<typeof setUserActiveSchema>;

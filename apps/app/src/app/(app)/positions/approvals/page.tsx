@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { requirePermission } from "@/lib/auth/guards";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { listPendingApprovals } from "@/lib/queries/positions";
 
 export const metadata: Metadata = { title: "Approvals · Docket" };
@@ -48,8 +48,8 @@ export default async function ApprovalsPage() {
                 <TableRow>
                   <TableHead>Position</TableHead>
                   <TableHead>Department</TableHead>
-                  <TableHead>Submitted by</TableHead>
-                  <TableHead>Submitted</TableHead>
+                  <TableHead>Requested by</TableHead>
+                  <TableHead>Requested</TableHead>
                   <TableHead>Hiring manager</TableHead>
                   <TableHead className="text-right">Openings</TableHead>
                   <TableHead>Deadline</TableHead>
@@ -71,7 +71,7 @@ export default async function ApprovalsPage() {
                       {p.submittedByName ?? "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(p.submittedAt)}
+                      {formatDateTime(p.submittedAt)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {p.hiringManagerName ?? "Unassigned"}

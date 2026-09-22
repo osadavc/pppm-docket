@@ -43,13 +43,14 @@ function navHrefs(role: UserRole): string[] {
 describe("role-aware navigation", () => {
   const expected: Record<UserRole, string[]> = {
     interviewer: ["/dashboard", "/queue"],
-    hr: ["/dashboard", "/queue", "/positions", "/candidates"],
+    hr: ["/dashboard", "/queue", "/positions", "/candidates", "/reports"],
     management: [
       "/dashboard",
       "/queue",
       "/positions",
       "/candidates",
       "/positions/approvals",
+      "/reports",
       "/admin/users",
     ],
   };
@@ -83,7 +84,6 @@ describe("role-aware navigation", () => {
     assert.equal(allDestinations.includes("/interviews"), false);
     assert.equal(allDestinations.includes("/settings/templates"), false);
     assert.equal(allDestinations.includes("/admin/notifications"), false);
-    assert.equal(allDestinations.includes("/reports"), false);
   });
 
   test("quick-add follows create permissions", () => {

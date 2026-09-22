@@ -48,15 +48,30 @@ export function StageList({
               <p className="text-muted-foreground text-sm">{stage.description}</p>
             ) : null}
             <p className="text-muted-foreground text-xs">
-              {(panels[stage.id] ?? []).length > 0
-                ? `Interviewers: ${(panels[stage.id] ?? []).map((p) => p.name).join(", ")}`
-                : "No interviewers assigned"}
+              {(panels[stage.id] ?? []).length > 0 ? (
+                <>
+                  Interviewers:{" "}
+                  {(panels[stage.id] ?? []).map((p, i) => (
+                    <span key={p.userId}>
+                      {i > 0 ? ", " : ""}
+                      <span
+                        className={p.isActive ? undefined : "line-through opacity-60"}
+                        title={p.isActive ? undefined : "Deactivated account"}
+                      >
+                        {p.name}
+                      </span>
+                    </span>
+                  ))}
+                </>
+              ) : (
+                "No interviewers assigned"
+              )}
             </p>
-            {stage.criteria.length > 0 ? (
+            {stage.criteria.some((c) => c.isActive) ? (
               <p className="text-muted-foreground text-xs">
                 Scored on:{" "}
                 {stage.criteria
-                  .slice()
+                  .filter((c) => c.isActive)
                   .sort((a, b) => a.orderIndex - b.orderIndex)
                   .map((c) => `${c.label} (×${c.weight})`)
                   .join(", ")}

@@ -195,6 +195,14 @@ export async function saveScorecard(
     rating: rating.rating,
     comment: rating.comment || null,
   }));
+  // Frozen with the rating: the label and weight the interviewer actually
+  // scored against, immune to later edits of the live criterion.
+  const criterionById = new Map(context.criteria.map((c) => [c.id, c]));
+  const withSnapshot = (rating: SnapshotRating) => ({
+    ...rating,
+    criterionLabel: criterionById.get(rating.criterionId)?.label ?? null,
+    criterionWeight: criterionById.get(rating.criterionId)?.weight ?? null,
+  });
   const weightedScore = calculateWeightedScore(context.criteria, rated);
   const now = new Date();
 
@@ -491,11 +499,13 @@ export async function saveScorecard(
 
       if (rated.length > 0) {
         await tx.insert(scorecardRatings).values(
-          proposedRatings.map((rating) => ({
+          proposedRatings.map(withSnapshot).map((rating) => ({
             scorecardId,
             criterionId: rating.criterionId,
             rating: rating.rating,
             comment: rating.comment,
+            criterionLabel: rating.criterionLabel,
+            criterionWeight: rating.criterionWeight,
           })),
         );
       }
@@ -519,11 +529,13 @@ export async function saveScorecard(
 
         if (proposedRatings.length > 0) {
           await tx.insert(scorecardRevisionRatings).values(
-            proposedRatings.map((rating) => ({
+            proposedRatings.map(withSnapshot).map((rating) => ({
               revisionId: savedRevision.id,
               criterionId: rating.criterionId,
               rating: rating.rating,
               comment: rating.comment,
+              criterionLabel: rating.criterionLabel,
+              criterionWeight: rating.criterionWeight,
               createdAt: now,
             })),
           );

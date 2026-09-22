@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, exists, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import {
@@ -142,8 +142,10 @@ export async function listScorecardsForApplication(
     .select({
       scorecardId: scorecardRatings.scorecardId,
       criterionId: scorecardRatings.criterionId,
-      label: scorecardCriteria.label,
-      weight: scorecardCriteria.weight,
+      // The snapshot taken at rating time wins; live values only fill rows
+      // written before snapshots existed.
+      label: sql<string>`coalesce(${scorecardRatings.criterionLabel}, ${scorecardCriteria.label})`,
+      weight: sql<number>`coalesce(${scorecardRatings.criterionWeight}, ${scorecardCriteria.weight})::int`,
       rating: scorecardRatings.rating,
       comment: scorecardRatings.comment,
     })

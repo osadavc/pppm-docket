@@ -6,6 +6,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { StageFormFields } from "@/components/positions/stage-form-fields";
 import { StagePanelDialog } from "@/components/positions/stage-panel-dialog";
+import {
+  StageCriteriaDialog,
+  type EditableCriterion,
+} from "@/components/positions/stage-criteria-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -45,7 +49,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export type EditableStage = StageFormInput & { id: string; isArchived: boolean };
+export type EditableStage = StageFormInput & {
+  id: string;
+  isArchived: boolean;
+  criteria: EditableCriterion[];
+};
 
 export function StageEditor({
   positionId,
@@ -138,7 +146,17 @@ export function StageEditor({
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1">
                   {(panels[stage.id] ?? []).length > 0 ? (
                     <span className="text-muted-foreground text-sm">
-                      {(panels[stage.id] ?? []).map((p) => p.name).join(", ")}
+                      {(panels[stage.id] ?? []).map((p, i) => (
+                        <span key={p.userId}>
+                          {i > 0 ? ", " : ""}
+                          <span
+                            className={p.isActive ? undefined : "line-through opacity-60"}
+                            title={p.isActive ? undefined : "Deactivated account"}
+                          >
+                            {p.name}
+                          </span>
+                        </span>
+                      ))}
                     </span>
                   ) : (
                     <span className="text-muted-foreground text-sm italic">
@@ -151,6 +169,11 @@ export function StageEditor({
                     stageName={stage.name}
                     assigned={panels[stage.id] ?? []}
                     candidates={assignableInterviewers}
+                  />
+                  <StageCriteriaDialog
+                    stageId={stage.id}
+                    stageName={stage.name}
+                    criteria={stage.criteria}
                   />
                 </div>
               </div>

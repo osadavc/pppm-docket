@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, exists, inArray } from "drizzle-orm";
+import { and, asc, eq, exists, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import {
@@ -127,8 +127,8 @@ export async function getApplicationScorecardRevisions(
     .select({
       revisionId: scorecardRevisionRatings.revisionId,
       criterionId: scorecardRevisionRatings.criterionId,
-      label: scorecardCriteria.label,
-      weight: scorecardCriteria.weight,
+      label: sql<string>`coalesce(${scorecardRevisionRatings.criterionLabel}, ${scorecardCriteria.label})`,
+      weight: sql<number>`coalesce(${scorecardRevisionRatings.criterionWeight}, ${scorecardCriteria.weight})::int`,
       rating: scorecardRevisionRatings.rating,
       comment: scorecardRevisionRatings.comment,
     })

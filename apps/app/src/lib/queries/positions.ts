@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, ilike, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import { applications, positions, positionStages, user } from "@/db/schema";
@@ -74,8 +74,39 @@ export type PositionListItem = {
   onHoldCount: number;
 };
 
-/** Internal listing — staff only, includes drafts. */
-export async function listPositions(): Promise<PositionListItem[]> {
+export const POSITIONS_PAGE_SIZE = 20;
+
+export type PositionListFilter = {
+  q: string;
+  status: PositionStatus | undefined;
+  page: number;
+};
+
+export type PositionListPage = {
+  rows: PositionListItem[];
+  total: number;
+  page: number;
+  pageCount: number;
+  pageSize: number;
+};
+
+/**
+ * Internal listing — staff only, includes drafts. Filtered, searched and
+ * paged in SQL; the total is a window count over the filtered set so a page
+ * and its count arrive together.
+ */
+export async function listPositions(
+  filter: PositionListFilter = { q: "", status: undefined, page: 1 },
+): Promise<PositionListPage> {
+  const where: SQL[] = [];
+  if (filter.q) {
+    const term = `%${filter.q}%`;
+    where.push(or(ilike(positions.title, term), ilike(positions.department, term))!);
+  }
+  if (filter.status) where.push(eq(positions.status, filter.status));
+  const predicate = where.length > 0 ? and(...where) : undefined;
+  const page = Math.max(1, filter.page);
+
   const rows = await db
     .select({
       id: positions.id,
@@ -90,9 +121,10 @@ export async function listPositions(): Promise<PositionListItem[]> {
       // Drizzle renders an interpolated column inside a sql template as a bare
       // "id", which resolves against the SUBQUERY's table rather than this one
       // — so the predicate silently compares a table to itself and counts zero.
+      // Live stages only: an archived stage is off the process.
       stageCount: sql<number>`(
         select count(*)::int from position_stages ps
-        where ps.position_id = "positions"."id"
+        where ps.position_id = "positions"."id" and ps.is_archived = false
       )`,
       // Active only: a held candidate is out of the running until resumed, so
       // counting them here would overstate how full the pipeline is.
@@ -104,11 +136,31 @@ export async function listPositions(): Promise<PositionListItem[]> {
         select count(*)::int from applications a
         where a.position_id = "positions"."id" and a.status = 'on_hold'
       )`,
+      total: sql<number>`count(*) over()`,
     })
     .from(positions)
-    .orderBy(desc(positions.createdAt));
+    .where(predicate)
+    .orderBy(desc(positions.createdAt))
+    .limit(POSITIONS_PAGE_SIZE)
+    .offset((page - 1) * POSITIONS_PAGE_SIZE);
 
-  return rows;
+  let total = rows[0]?.total ?? 0;
+  if (rows.length === 0 && page > 1) {
+    const [counted] = await db.select({ n: count() }).from(positions).where(predicate);
+    total = counted?.n ?? 0;
+  }
+
+  return {
+    rows: rows.map((row) => {
+      const { total: _ignored, ...item } = row;
+      void _ignored;
+      return item;
+    }),
+    total,
+    page,
+    pageCount: Math.max(1, Math.ceil(total / POSITIONS_PAGE_SIZE)),
+    pageSize: POSITIONS_PAGE_SIZE,
+  };
 }
 
 export async function getPosition(positionId: string) {
@@ -181,6 +233,7 @@ export async function listPendingApprovals(): Promise<PendingApproval[]> {
       stageCount: sql<number>`(
         select count(*)::int from ${positionStages}
         where ${positionStages.positionId} = ${positions.id}
+          and ${positionStages.isArchived} = false
       )`,
     })
     .from(positions)
