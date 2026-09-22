@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/card";
 import { ApplyForm } from "@/components/careers/apply-form";
 import { acceptsApplications } from "@/lib/domain/position-status";
-import { EMPLOYMENT_TYPE_LABELS, formatDate } from "@/lib/format";
+import { openingsLine } from "@/lib/domain/careers";
+import { EMPLOYMENT_TYPE_LABELS } from "@/lib/format";
 import { getPublicPosition } from "@/lib/queries/positions";
 
 export const metadata: Metadata = { title: "Role · Docket Careers" };
@@ -48,9 +49,7 @@ export default async function CareersRolePage({
           </span>
         ) : null}
         <span>{EMPLOYMENT_TYPE_LABELS[role.employmentType]}</span>
-        {role.applicationDeadline ? (
-          <span>Closes {formatDate(role.applicationDeadline)}</span>
-        ) : null}
+        <span>{openingsLine(role.openings, role.applicationDeadline)}</span>
       </div>
 
       <Card className="mt-8">

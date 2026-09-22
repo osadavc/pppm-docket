@@ -3,6 +3,7 @@
 import { ArrowRight, TriangleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useDialogShortcut } from "@/components/applications/use-dialog-shortcut";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -40,9 +41,15 @@ function waitingOn(outstanding: readonly string[]) {
 export function AdvanceButton({
   context,
   canOverride,
+  shortcutKey,
+  onDone,
 }: {
   context: AdvanceContext;
   canOverride: boolean;
+  /** Keyboard key that opens the dialog while this button is mounted. */
+  shortcutKey?: string;
+  /** Called after a successful move, before the router refresh. */
+  onDone?: (result: { toStageName: string }) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -64,6 +71,8 @@ export function AdvanceButton({
   const blocked = context.gate.blocked;
   const needsOverride = blocked && canOverride;
   const overrideReady = override.trim().length >= OVERRIDE_REASON_MIN_LENGTH;
+  const usable = !context.isFinalStage && Boolean(context.nextStage) && context.status === "active";
+  useDialogShortcut(usable ? shortcutKey : undefined, open, openDialog);
 
   // Nothing follows the last stage — the end of a pipeline is an outcome.
   if (context.isFinalStage) {
@@ -120,6 +129,7 @@ export function AdvanceButton({
     candidateEmailToast(moved, result.data.email);
     setOpen(false);
     reset();
+    onDone?.({ toStageName: result.data.toStageName });
     router.refresh();
   }
 

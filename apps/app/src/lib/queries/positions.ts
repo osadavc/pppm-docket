@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import { applications, positions, positionStages, user } from "@/db/schema";
@@ -13,15 +13,37 @@ import type { PositionStatus } from "@/db/schema/enums";
  */
 const PUBLIC_STATUS = "open" as const satisfies PositionStatus;
 
+/** Open, and either undated or not yet past its deadline. */
+function publiclyOpen(now: Date) {
+  return and(
+    eq(positions.status, PUBLIC_STATUS),
+    or(
+      isNull(positions.applicationDeadline),
+      gt(positions.applicationDeadline, now),
+    ),
+  );
+}
+
+export type PublicPositionRow = {
+  id: string;
+  title: string;
+  department: string;
+  location: string | null;
+  employmentType: (typeof positions.$inferSelect)["employmentType"];
+  openings: number;
+  applicationDeadline: Date | null;
+  openedAt: Date | null;
+};
+
 /**
  * The ONLY query a public careers board may use.
  *
- * Drafts are excluded here rather than in a page filter, so a future public
- * page cannot leak them by forgetting a `where` clause. There is no public
- * board yet — this exists so the guarantee lands with the draft story rather
- * than being retrofitted later.
+ * Filters to status = 'open' *and* an unexpired deadline, so a role whose
+ * window has closed drops off the board even though its detail page (and the
+ * receipt for anyone who applied in time) stays reachable. Drafts and
+ * positions awaiting approval can never reach this page.
  */
-export async function listPublicPositions() {
+export async function listPublicPositions(now: Date = new Date()) {
   return db
     .select({
       id: positions.id,
@@ -29,13 +51,13 @@ export async function listPublicPositions() {
       department: positions.department,
       location: positions.location,
       employmentType: positions.employmentType,
-      description: positions.description,
+      openings: positions.openings,
       applicationDeadline: positions.applicationDeadline,
       openedAt: positions.openedAt,
     })
     .from(positions)
-    .where(eq(positions.status, PUBLIC_STATUS))
-    .orderBy(desc(positions.openedAt));
+    .where(publiclyOpen(now))
+    .orderBy(asc(positions.department), desc(positions.openedAt));
 }
 
 export type PositionListItem = {
@@ -191,6 +213,7 @@ export async function getPublicPosition(positionId: string) {
       employmentType: positions.employmentType,
       description: positions.description,
       requirements: positions.requirements,
+      openings: positions.openings,
       applicationDeadline: positions.applicationDeadline,
     })
     .from(positions)

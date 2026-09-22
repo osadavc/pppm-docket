@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { Briefcase } from "lucide-react";
+import { COMPANY_NAME } from "@/lib/company";
+
+const FOOTER_COPY =
+  process.env.NEXT_PUBLIC_CAREERS_FOOTER?.trim() ||
+  "Open roles are published once approved internally.";
 
 /**
  * Public, unauthenticated shell. Deliberately outside the (app) group so it
@@ -14,13 +19,19 @@ export default function CareersLayout({ children }: LayoutProps<"/careers">) {
             <Briefcase className="size-4" />
           </span>
           <Link href="/careers" className="font-semibold tracking-tight">
-            Docket Careers
+            {COMPANY_NAME} Careers
+          </Link>
+          <Link
+            href="/sign-in"
+            className="text-muted-foreground ml-auto text-sm hover:underline"
+          >
+            Staff sign in
           </Link>
         </div>
       </header>
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">{children}</main>
       <footer className="text-muted-foreground border-t py-6 text-center text-xs">
-        Open roles are published once approved internally.
+        {FOOTER_COPY}
       </footer>
     </div>
   );

@@ -3,6 +3,7 @@
 import { UserX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useDialogShortcut } from "@/components/applications/use-dialog-shortcut";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CandidateEmailComposer } from "@/components/applications/candidate-email-composer";
@@ -37,7 +38,15 @@ import type { AdvanceContext } from "@/lib/queries/applications";
 
 type Reason = RejectApplicationInput["reason"];
 
-export function RejectDialog({ context }: { context: AdvanceContext }) {
+export function RejectDialog({
+  context,
+  shortcutKey,
+  onDone,
+}: {
+  context: AdvanceContext;
+  shortcutKey?: string;
+  onDone?: () => void;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   // No default: a reason must be chosen deliberately, not accepted by inertia.
@@ -54,6 +63,8 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
   const [notifyCandidate, setNotifyCandidate] = useState(true);
   const [emailSubject, setEmailSubject] = useState(template.subject);
   const [emailBody, setEmailBody] = useState(template.body);
+
+  useDialogShortcut(shortcutKey, open, () => setOpen(true));
 
   const needsNote = reason === "other";
   const emailReady =
@@ -84,6 +95,7 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
     }
     candidateEmailToast(`${result.data.candidateName} rejected.`, result.data.email);
     setOpen(false);
+    onDone?.();
     setReason("");
     setNote("");
     setNotifyCandidate(true);

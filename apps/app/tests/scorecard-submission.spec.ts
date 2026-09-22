@@ -287,6 +287,12 @@ test("submit, revise with immutable history, clear the gate, and advance", async
     ),
   ).toBeVisible();
 
+  // The first revision's toast must be gone before the second is asserted,
+  // otherwise the assertion passes on the stale toast and the database read
+  // below races the second save.
+  await expect(page.getByText("Feedback updated.", { exact: true })).toBeHidden({
+    timeout: 10_000,
+  });
   await page
     .getByLabel("Notes")
     .fill("This second correction adds the final interview context.");
@@ -382,13 +388,12 @@ test("submit, revise with immutable history, clear the gate, and advance", async
   const hr = await browser.newContext();
   const hrPage = await hr.newPage();
   await signIn(hrPage, hrEmail);
-  await hrPage.goto(`/candidates/${candidateId}`);
+  // Decisions live on the application page; the profile only links there.
+  await hrPage.goto(`/applications/${applicationId}`);
   await hrPage.getByRole("button", { name: "Advance", exact: true }).click();
-  await expect(hrPage.getByLabel("Reason for overriding")).toHaveCount(0);
-  await hrPage.getByRole("button", { name: "Move to Final review" }).click();
-  await expect(
-    hrPage.getByText("Moved to Final review", { exact: true }),
-  ).toBeVisible();
+  await expect(hrPage.getByLabel("Advance anyway — record a reason")).toHaveCount(0);
+  await hrPage.getByRole("button", { name: /^Move to Final review/ }).click();
+  await expect(hrPage.getByText(/moved to Final review\./)).toBeVisible();
 
   const [advanced] = await db
     .select({ currentStageId: applications.currentStageId })

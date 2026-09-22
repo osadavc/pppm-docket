@@ -4,7 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { BoardColumn } from "@/lib/queries/pipeline";
 
-export function PipelineBoard({ columns }: { columns: BoardColumn[] }) {
+export function PipelineBoard({
+  columns,
+  positionId,
+}: {
+  columns: BoardColumn[];
+  positionId: string;
+}) {
   if (columns.length === 0) {
     return (
       <Card className="text-muted-foreground p-10 text-center text-sm">
@@ -52,6 +58,15 @@ export function PipelineBoard({ columns }: { columns: BoardColumn[] }) {
                   </Link>
                 ))
               )}
+              {/* The column holds only a window of cards; the count is exact. */}
+              {column.count > column.candidates.length ? (
+                <Link
+                  href={`/positions/${positionId}/candidates?stage=${column.stageId}`}
+                  className="text-muted-foreground rounded-md border border-dashed p-2 text-center text-xs hover:underline"
+                >
+                  View all {column.count}
+                </Link>
+              ) : null}
             </div>
           </section>
         ))}

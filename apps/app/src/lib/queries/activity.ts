@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, desc, eq, exists, ne } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ne } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import {
   activityLog,
   applications,
   applicationStages,
+  attachments,
   candidates,
   notifications,
   positions,
@@ -58,14 +59,27 @@ export type ApplicationHeader = {
   candidateId: string;
   candidateName: string;
   candidateEmail: string;
+  candidatePhone: string | null;
+  candidateLocation: string | null;
+  currentTitle: string | null;
+  currentCompany: string | null;
+  source: string;
   positionId: string;
   positionTitle: string;
+  currentStageId: string | null;
   currentStageName: string | null;
+  /** When they entered the current stage; drives the pace badge. */
+  enteredAt: Date | null;
   appliedAt: Date;
+  /** When the application was resolved (hired/rejected), if it was. */
+  decisionAt: Date | null;
+  rejectionReason: string | null;
+  decisionReason: string | null;
   /** From the public form; the page shows it to HR and management only. */
   salaryExpectation: string | null;
   /** Null when the candidate applied from the careers site. */
   createdByName: string | null;
+  cv: { attachmentId: string; fileName: string; mimeType: string } | null;
 };
 
 /**
@@ -94,12 +108,25 @@ export async function getApplicationHeader(
       candidateId: candidates.id,
       candidateName: candidates.fullName,
       candidateEmail: candidates.email,
+      candidatePhone: candidates.phone,
+      candidateLocation: candidates.location,
+      currentTitle: candidates.currentTitle,
+      currentCompany: candidates.currentCompany,
+      source: candidates.source,
       positionId: positions.id,
       positionTitle: positions.title,
+      currentStageId: applications.currentStageId,
       currentStageName: positionStages.name,
+      enteredAt: applicationStages.enteredAt,
       appliedAt: applications.appliedAt,
+      decisionAt: applications.decisionAt,
+      rejectionReason: applications.rejectionReason,
+      decisionReason: applications.decisionReason,
       salaryExpectation: applications.salaryExpectation,
       createdByName: user.name,
+      cvAttachmentId: attachments.id,
+      cvFileName: attachments.fileName,
+      cvMimeType: attachments.mimeType,
     })
     .from(applications)
     .innerJoin(candidates, eq(candidates.id, applications.candidateId))
@@ -108,9 +135,89 @@ export async function getApplicationHeader(
       positionStages,
       eq(positionStages.id, applications.currentStageId),
     )
+    .leftJoin(
+      applicationStages,
+      and(
+        eq(applicationStages.applicationId, applications.id),
+        eq(applicationStages.positionStageId, applications.currentStageId),
+      ),
+    )
     .leftJoin(user, eq(user.id, applications.createdById))
+    .leftJoin(
+      attachments,
+      and(
+        eq(attachments.applicationId, applications.id),
+        eq(attachments.kind, "cv"),
+      ),
+    )
+    .where(eq(applications.id, applicationId))
+    .orderBy(desc(attachments.createdAt))
+    .limit(1);
+  if (!row) return null;
+  const { cvAttachmentId, cvFileName, cvMimeType, ...header } = row;
+  return {
+    ...header,
+    cv:
+      cvAttachmentId && cvFileName && cvMimeType
+        ? { attachmentId: cvAttachmentId, fileName: cvFileName, mimeType: cvMimeType }
+        : null,
+  };
+}
+
+export type StepperStage = {
+  id: string;
+  name: string;
+  orderIndex: number;
+  isArchived: boolean;
+  /** This application's progress row, if the stage was ever materialised. */
+  progress: "pending" | "in_progress" | "passed" | "failed" | "skipped" | null;
+  isCurrent: boolean;
+};
+
+/**
+ * Every live stage of the position plus any archived stage this candidate
+ * actually visited, in pipeline order. Archived stages nobody visited are
+ * omitted: they were never part of this candidate's journey.
+ */
+export async function getApplicationStepper(
+  applicationId: string,
+): Promise<StepperStage[]> {
+  const [app] = await db
+    .select({ positionId: applications.positionId, currentStageId: applications.currentStageId })
+    .from(applications)
     .where(eq(applications.id, applicationId));
-  return row ?? null;
+  if (!app) return [];
+
+  const rows = await db
+    .select({
+      id: positionStages.id,
+      name: positionStages.name,
+      orderIndex: positionStages.orderIndex,
+      isArchived: positionStages.isArchived,
+      progress: applicationStages.status,
+      enteredAt: applicationStages.enteredAt,
+    })
+    .from(positionStages)
+    .leftJoin(
+      applicationStages,
+      and(
+        eq(applicationStages.positionStageId, positionStages.id),
+        eq(applicationStages.applicationId, applicationId),
+      ),
+    )
+    .where(eq(positionStages.positionId, app.positionId))
+    .orderBy(asc(positionStages.orderIndex), asc(positionStages.name));
+
+  return rows
+    .filter((r) => !r.isArchived || (r.progress !== null && r.progress !== "pending") || r.id === app.currentStageId)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      orderIndex: r.orderIndex,
+      isArchived: r.isArchived,
+      progress: r.progress,
+      isCurrent: r.id === app.currentStageId,
+    }));
 }
 
 const RECOMMENDATION_LABELS: Record<string, string> = {

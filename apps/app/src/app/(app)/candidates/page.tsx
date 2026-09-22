@@ -94,13 +94,25 @@ export default async function CandidatesPage({
                   <TableRow key={r.applicationId ?? r.candidateId}>
                     <TableCell className="font-medium">
                       <Link
-                        href={`/candidates/${r.candidateId}?from=${encodeURIComponent(returnTo)}`}
+                        // The application is where decisions happen; the
+                        // profile stays one click away from there.
+                        href={
+                          r.applicationId
+                            ? `/applications/${r.applicationId}`
+                            : `/candidates/${r.candidateId}?from=${encodeURIComponent(returnTo)}`
+                        }
                         className="hover:underline"
                       >
                         {r.fullName}
                       </Link>
                       <span className="text-muted-foreground block text-xs">
-                        {r.email}
+                        {r.email} ·{" "}
+                        <Link
+                          href={`/candidates/${r.candidateId}?from=${encodeURIComponent(returnTo)}`}
+                          className="underline underline-offset-4"
+                        >
+                          Profile
+                        </Link>
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
