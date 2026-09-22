@@ -5,6 +5,7 @@ import { db } from "@/db/client";
 import {
   applications,
   applicationStages,
+  applicationStagePanels,
   positionStageInterviewers,
   positionStages,
   scorecards,
@@ -40,35 +41,32 @@ export async function listEligiblePanelFeedback(
 ): Promise<EligiblePanelFeedback[]> {
   return db
     .select({
-      userId: positionStageInterviewers.userId,
+      userId: applicationStagePanels.userId,
       name: user.name,
       submittedScorecardId: scorecards.id,
     })
-    .from(positionStageInterviewers)
+    .from(applicationStagePanels)
     .innerJoin(
       user,
       and(
-        eq(user.id, positionStageInterviewers.userId),
+        eq(user.id, applicationStagePanels.userId),
         eq(user.isActive, true),
-      ),
-    )
-    .leftJoin(
-      applicationStages,
-      and(
-        eq(applicationStages.applicationId, applicationId),
-        eq(applicationStages.positionStageId, positionStageId),
       ),
     )
     .leftJoin(
       scorecards,
       and(
-        eq(scorecards.applicationId, applicationId),
-        eq(scorecards.applicationStageId, applicationStages.id),
-        eq(scorecards.authorId, positionStageInterviewers.userId),
+        eq(scorecards.applicationStageId, applicationStagePanels.applicationStageId),
+        eq(scorecards.authorId, applicationStagePanels.userId),
         eq(scorecards.status, "submitted"),
       ),
     )
-    .where(eq(positionStageInterviewers.positionStageId, positionStageId))
+    .where(
+      and(
+        eq(applicationStagePanels.applicationId, applicationId),
+        eq(applicationStagePanels.positionStageId, positionStageId),
+      ),
+    )
     .orderBy(asc(user.name));
 }
 
@@ -146,16 +144,26 @@ export async function listAssignableInterviewers(): Promise<
  * if a caller forgets a guard.
  */
 export async function listPositionIdsVisibleToInterviewer(userId: string) {
-  const rows = await db
-    .selectDistinct({ positionId: positionStages.positionId })
-    .from(positionStageInterviewers)
-    .innerJoin(
-      positionStages,
-      eq(positionStages.id, positionStageInterviewers.positionStageId),
-    )
-    .where(eq(positionStageInterviewers.userId, userId));
+  const [standing, scheduled] = await Promise.all([
+    db
+      .selectDistinct({ positionId: positionStages.positionId })
+      .from(positionStageInterviewers)
+      .innerJoin(
+        positionStages,
+        eq(positionStages.id, positionStageInterviewers.positionStageId),
+      )
+      .where(eq(positionStageInterviewers.userId, userId)),
+    db
+      .selectDistinct({ positionId: positionStages.positionId })
+      .from(applicationStagePanels)
+      .innerJoin(
+        positionStages,
+        eq(positionStages.id, applicationStagePanels.positionStageId),
+      )
+      .where(eq(applicationStagePanels.userId, userId)),
+  ]);
 
-  return rows.map((r) => r.positionId);
+  return [...new Set([...standing, ...scheduled].map((r) => r.positionId))];
 }
 
 /**
@@ -180,13 +188,14 @@ export async function interviewerCanViewApplication(
             eq(applications.status, "active"),
             exists(
               db
-                .select({ id: positionStageInterviewers.id })
-                .from(positionStageInterviewers)
+                .select({ userId: applicationStagePanels.userId })
+                .from(applicationStagePanels)
                 .where(
                   and(
-                    eq(positionStageInterviewers.userId, userId),
+                    eq(applicationStagePanels.userId, userId),
+                    eq(applicationStagePanels.applicationId, applications.id),
                     eq(
-                      positionStageInterviewers.positionStageId,
+                      applicationStagePanels.positionStageId,
                       applications.currentStageId,
                     ),
                   ),
@@ -219,19 +228,14 @@ export async function assignedStageIdsForInterviewer(
   applicationId: string,
 ) {
   const rows = await db
-    .select({ applicationStageId: applicationStages.id })
-    .from(applicationStages)
-    .innerJoin(
-      positionStageInterviewers,
+    .select({ applicationStageId: applicationStagePanels.applicationStageId })
+    .from(applicationStagePanels)
+    .where(
       and(
-        eq(
-          positionStageInterviewers.positionStageId,
-          applicationStages.positionStageId,
-        ),
-        eq(positionStageInterviewers.userId, userId),
+        eq(applicationStagePanels.applicationId, applicationId),
+        eq(applicationStagePanels.userId, userId),
       ),
-    )
-    .where(eq(applicationStages.applicationId, applicationId));
+    );
 
   return rows.map((r) => r.applicationStageId);
 }

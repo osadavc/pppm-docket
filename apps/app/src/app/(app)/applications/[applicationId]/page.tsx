@@ -14,6 +14,7 @@ import { EmailsTab } from "@/components/applications/emails-tab";
 import { FeedbackList } from "@/components/applications/feedback-list";
 import { FlowOverrideMenu } from "@/components/applications/flow-override-menu";
 import { GatePanel } from "@/components/applications/gate-panel";
+import { InterviewsPanel } from "@/components/applications/interviews-panel";
 import { HireDialog } from "@/components/applications/hire-dialog";
 import { RejectDialog } from "@/components/applications/reject-dialog";
 import { ScorecardRevisionViewer } from "@/components/applications/scorecard-revision-viewer";
@@ -45,6 +46,8 @@ import {
   countNotificationsForApplication,
   listNotificationsForApplication,
 } from "@/lib/queries/notifications";
+import { getCurrentStageForScheduling, listInterviewsForApplication } from "@/lib/queries/interviews";
+import { listAssignableInterviewers } from "@/lib/queries/stage-interviewers";
 import { getFillSummary } from "@/lib/queries/positions";
 import { getApplicationScorecardRevisions } from "@/lib/queries/scorecard-revisions";
 import { listScorecardsForApplication } from "@/lib/queries/scorecards";
@@ -181,6 +184,14 @@ export default async function ApplicationPage({
       isStaff ? countNotificationsForApplication(applicationId, viewer) : 0,
     ]);
 
+  const [interviewList, schedulingStage, people] = isStaff
+    ? await Promise.all([
+        listInterviewsForApplication(applicationId),
+        getCurrentStageForScheduling(applicationId),
+        canManage ? listAssignableInterviewers() : [],
+      ])
+    : [[], null, []];
+
   const active = header.status === "active";
   const tabsWithCounts = tabs.map((t) =>
     t.id === "emails" ? { ...t, label: `Emails (${emailCount})` } : t,
@@ -258,6 +269,18 @@ export default async function ApplicationPage({
           gate={context.gate}
           stageName={context.currentStage.name}
           outstandingInterviewers={context.outstandingInterviewers}
+        />
+      ) : null}
+
+      {isStaff && (active || interviewList.length > 0) ? (
+        <InterviewsPanel
+          applicationId={applicationId}
+          stageName={active ? (schedulingStage?.stageName ?? null) : null}
+          applicationStageId={schedulingStage?.applicationStageId ?? null}
+          interviews={interviewList}
+          people={people.map((p) => ({ id: p.userId, name: p.name, jobTitle: p.jobTitle }))}
+          standingPanelIds={schedulingStage?.standingPanelIds ?? []}
+          canManage={canManage && active}
         />
       ) : null}
 

@@ -119,6 +119,13 @@ export default async function PositionPage({
               <Columns3 /> Pipeline
             </Link>
           </Button>
+          {canConfigureStages ? (
+            <Button asChild variant="outline">
+              <Link href={`/positions/${position.id}/stages`}>
+                <SlidersHorizontal /> Stages
+              </Link>
+            </Button>
+          ) : null}
           {canManage ? (
             <Button asChild variant="outline">
               <Link href={`/positions/${position.id}/edit`}>

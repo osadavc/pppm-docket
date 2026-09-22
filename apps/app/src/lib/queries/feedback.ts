@@ -7,7 +7,7 @@ import {
   applicationStages,
   candidates,
   positions,
-  positionStageInterviewers,
+  applicationStagePanels,
   positionStages,
   scorecardCriteria,
   scorecardRatings,
@@ -89,17 +89,17 @@ export async function getFeedbackContext(
       eq(positionStages.id, applications.currentStageId),
     )
     .innerJoin(
-      positionStageInterviewers,
-      and(
-        eq(positionStageInterviewers.positionStageId, positionStages.id),
-        eq(positionStageInterviewers.userId, userId),
-      ),
-    )
-    .innerJoin(
       applicationStages,
       and(
         eq(applicationStages.applicationId, applications.id),
         eq(applicationStages.positionStageId, positionStages.id),
+      ),
+    )
+    .innerJoin(
+      applicationStagePanels,
+      and(
+        eq(applicationStagePanels.applicationStageId, applicationStages.id),
+        eq(applicationStagePanels.userId, userId),
       ),
     )
     .leftJoin(

@@ -120,6 +120,13 @@
       "when": 1790061143644,
       "tag": "0016_criterion_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790061144644,
+      "tag": "0017_application_stage_panels",
+      "breakpoints": true
     }
   ]
 }

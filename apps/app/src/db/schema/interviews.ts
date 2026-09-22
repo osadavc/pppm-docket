@@ -1,4 +1,4 @@
-import { index, integer, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, pgView, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { applications, applicationStages } from "./applications";
 import { user } from "./auth";
 import {
@@ -69,6 +69,17 @@ export const interviewParticipants = pgTable(
     index("interview_participants_user_idx").on(t.userId),
   ],
 );
+
+/**
+ * The effective panel per application-stage (drizzle/0017): a scheduled
+ * interview's lead and interviewers, or the stage's standing panel when none.
+ */
+export const applicationStagePanels = pgView("application_stage_panels", {
+  applicationStageId: uuid("application_stage_id").notNull(),
+  applicationId: uuid("application_id").notNull(),
+  positionStageId: uuid("position_stage_id").notNull(),
+  userId: text("user_id").notNull(),
+}).existing();
 
 export type Interview = typeof interviews.$inferSelect;
 export type NewInterview = typeof interviews.$inferInsert;

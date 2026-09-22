@@ -84,8 +84,7 @@ test("HR: malformed and missing record ids are 404 across every family", async (
     const inline = await request.get(`/api/files/${attachmentId}?inline=1`, { maxRedirects: 0 });
     assert.ok([302, 307].includes(inline.status()));
   }
-  // The stage editor is management-only: HR is forbidden, not "not found".
-  assert.equal(await status(page, `/positions/${openPositionId}/stages`), 403);
+  assert.equal(await status(page, `/positions/${openPositionId}/stages`), 200);
 });
 
 test("interviewer: unrelated application, its file and staff-only pages are refused", async ({ page, context }) => {

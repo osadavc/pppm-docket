@@ -18,7 +18,7 @@ import {
   attachments,
   candidates,
   positions,
-  positionStageInterviewers,
+  applicationStagePanels,
   positionStages,
   scorecards,
   user,
@@ -75,7 +75,7 @@ export async function getMyQueue(
 
   const baseWhere = and(
     eq(applications.status, "active"),
-    eq(positionStageInterviewers.userId, userId),
+    eq(applicationStagePanels.userId, userId),
   );
 
   const [totals] = await db
@@ -85,18 +85,15 @@ export async function getMyQueue(
     })
     .from(applications)
     .innerJoin(
-      positionStageInterviewers,
-      eq(
-        positionStageInterviewers.positionStageId,
-        applications.currentStageId,
-      ),
-    )
-    .innerJoin(
       applicationStages,
       and(
         eq(applicationStages.applicationId, applications.id),
         eq(applicationStages.positionStageId, applications.currentStageId),
       ),
+    )
+    .innerJoin(
+      applicationStagePanels,
+      eq(applicationStagePanels.applicationStageId, applicationStages.id),
     )
     .leftJoin(
       scorecards,
@@ -139,15 +136,15 @@ export async function getMyQueue(
             eq(positionStages.id, applications.currentStageId),
           )
           .innerJoin(
-            positionStageInterviewers,
-            eq(positionStageInterviewers.positionStageId, positionStages.id),
-          )
-          .innerJoin(
             applicationStages,
             and(
               eq(applicationStages.applicationId, applications.id),
               eq(applicationStages.positionStageId, positionStages.id),
             ),
+          )
+          .innerJoin(
+            applicationStagePanels,
+            eq(applicationStagePanels.applicationStageId, applicationStages.id),
           )
           .leftJoin(
             scorecards,
@@ -177,22 +174,19 @@ export async function getMyQueue(
           .select({
             applicationStageId: applicationStages.id,
             assignedInterviewerCount: countDistinct(
-              positionStageInterviewers.userId,
+              applicationStagePanels.userId,
             ),
             submittedScorecardCount: countDistinct(scorecards.id),
           })
           .from(applicationStages)
           .innerJoin(
-            positionStageInterviewers,
-            eq(
-              positionStageInterviewers.positionStageId,
-              applicationStages.positionStageId,
-            ),
+            applicationStagePanels,
+            eq(applicationStagePanels.applicationStageId, applicationStages.id),
           )
           .innerJoin(
             user,
             and(
-              eq(user.id, positionStageInterviewers.userId),
+              eq(user.id, applicationStagePanels.userId),
               eq(user.isActive, true),
             ),
           )
@@ -200,7 +194,7 @@ export async function getMyQueue(
             scorecards,
             and(
               eq(scorecards.applicationStageId, applicationStages.id),
-              eq(scorecards.authorId, positionStageInterviewers.userId),
+              eq(scorecards.authorId, applicationStagePanels.userId),
               eq(scorecards.status, "submitted"),
             ),
           )
@@ -280,20 +274,17 @@ export async function countOutstandingFeedback(userId: string) {
     .select({ total: count() })
     .from(applications)
     .innerJoin(
-      positionStageInterviewers,
-      and(
-        eq(
-          positionStageInterviewers.positionStageId,
-          applications.currentStageId,
-        ),
-        eq(positionStageInterviewers.userId, userId),
-      ),
-    )
-    .innerJoin(
       applicationStages,
       and(
         eq(applicationStages.applicationId, applications.id),
         eq(applicationStages.positionStageId, applications.currentStageId),
+      ),
+    )
+    .innerJoin(
+      applicationStagePanels,
+      and(
+        eq(applicationStagePanels.applicationStageId, applicationStages.id),
+        eq(applicationStagePanels.userId, userId),
       ),
     )
     .leftJoin(

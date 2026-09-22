@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CandidateQuickView } from "@/components/pipeline/candidate-quick-view";
 import { PaceBadge } from "@/components/pipeline/pace-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -39,12 +40,14 @@ export function PipelineBoard({
                 </p>
               ) : (
                 column.candidates.map((c) => (
-                  <Link
+                  // The application, not the candidate: interviewers can open
+                  // this but have no access to the candidate directory.
+                  <CandidateQuickView
                     key={c.applicationId}
-                    // The application, not the candidate: interviewers can open
-                    // this but have no access to the candidate directory.
-                    href={`/applications/${c.applicationId}`}
-                    className="hover:bg-accent/50 block rounded-lg border p-3 transition-colors"
+                    applicationId={c.applicationId}
+                    fullName={c.fullName}
+                    subtitle={[c.currentTitle, column.name].filter(Boolean).join(" · ")}
+                    className="bg-card hover:border-foreground/20 block rounded-lg border p-3 shadow-xs transition-colors"
                   >
                     <p className="truncate text-sm font-medium">{c.fullName}</p>
                     {c.currentTitle ? (
@@ -55,7 +58,7 @@ export function PipelineBoard({
                     <div className="mt-2">
                       <PaceBadge pace={c.pace} />
                     </div>
-                  </Link>
+                  </CandidateQuickView>
                 ))
               )}
               {/* The column holds only a window of cards; the count is exact. */}

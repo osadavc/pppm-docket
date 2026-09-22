@@ -10,12 +10,9 @@ import type { UserRole } from "./roles";
 export const PERMISSIONS = {
   "position:view": ["hr", "management"],
   "position:manage": ["hr"],
-  // The story reads "As a hiring manager, I want to define a custom sequence of
-  // interview stages", and across this backlog "hiring manager" means the
-  // management tier (approving positions, changing roles) while "HR executive"
-  // means hr. The interview process for a role belongs to the manager hiring
-  // for it, so this is management-only.
-  "position:stages:manage": ["management"],
+  // HR runs the hiring process day to day, so it shapes each role's stages
+  // alongside the hiring manager.
+  "position:stages:manage": ["hr", "management"],
   "position:submit": ["hr"],
   "position:approve": ["management"],
   "template:view": ["hr", "management"],

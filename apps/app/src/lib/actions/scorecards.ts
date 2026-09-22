@@ -6,7 +6,7 @@ import { db } from "@/db/client";
 import {
   applications,
   applicationStages,
-  positionStageInterviewers,
+  applicationStagePanels,
   scorecardRatings,
   scorecardRevisionRatings,
   scorecardRevisions,
@@ -271,19 +271,16 @@ export async function saveScorecard(
               ),
             )
             .innerJoin(
-              positionStageInterviewers,
+              applicationStagePanels,
               and(
-                eq(
-                  positionStageInterviewers.positionStageId,
-                  applications.currentStageId,
-                ),
-                eq(positionStageInterviewers.userId, actor.id),
+                eq(applicationStagePanels.applicationStageId, applicationStages.id),
+                eq(applicationStagePanels.userId, actor.id),
               ),
             )
             .innerJoin(
               user,
               and(
-                eq(user.id, positionStageInterviewers.userId),
+                eq(user.id, applicationStagePanels.userId),
                 eq(user.id, actor.id),
                 eq(user.isActive, true),
               ),
@@ -299,12 +296,7 @@ export async function saveScorecard(
             )
             .limit(1)
             .for("update", {
-              of: [
-                applications,
-                applicationStages,
-                positionStageInterviewers,
-                user,
-              ],
+              of: [applications, applicationStages, user],
             });
 
       if (!eligible) throw new ScorecardNotEligibleError();

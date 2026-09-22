@@ -17,8 +17,6 @@ export const metadata: Metadata = { title: "Interview stages · Docket" };
 export default async function PositionStagesPage({
   params,
 }: PageProps<"/positions/[positionId]/stages">) {
-  // Management-only: the interview process for a role belongs to the manager
-  // hiring for it.
   await requirePermission("position:stages:manage");
   const positionId = parseUuidParam((await params).positionId);
 
