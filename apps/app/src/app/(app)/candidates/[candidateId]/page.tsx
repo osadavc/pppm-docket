@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Markdown } from "@/components/app/markdown";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Download, FileText } from "lucide-react";
@@ -41,16 +42,16 @@ export default async function CandidatePage({
 
   const facts: Array<[string, string]> = [
     ["Email", candidate.email],
-    ["Phone", candidate.phone || "—"],
-    ["Location", candidate.location || "—"],
-    ["Current role", candidate.currentTitle || "—"],
-    ["Company", candidate.currentCompany || "—"],
+    ["Phone", candidate.phone || "-"],
+    ["Location", candidate.location || "-"],
+    ["Current role", candidate.currentTitle || "-"],
+    ["Company", candidate.currentCompany || "-"],
     ["Source", CANDIDATE_SOURCE_LABELS[candidate.source]],
-    ["Referred by", candidate.referredBy?.name ?? "—"],
+    ["Referred by", candidate.referredBy?.name ?? "-"],
     [
       "Added by",
       candidate.createdBy?.name ??
-        (candidate.source === "careers_site" ? "Careers site (self-applied)" : "—"),
+        (candidate.source === "careers_site" ? "Careers site (self-applied)" : "-"),
     ],
     ["Added", formatDate(candidate.createdAt)],
   ];
@@ -112,7 +113,7 @@ export default async function CandidatePage({
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="font-normal">
-                        {a.currentStage?.name ?? "—"}
+                        {a.currentStage?.name ?? "-"}
                       </Badge>
                       <Badge variant="secondary" className="font-normal capitalize">
                         {a.status.replace("_", " ")}
@@ -173,7 +174,7 @@ export default async function CandidatePage({
                 <CardTitle>Notes</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{candidate.notes}</p>
+                <Markdown>{candidate.notes}</Markdown>
               </CardContent>
             </Card>
           ) : null}

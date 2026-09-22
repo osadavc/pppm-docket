@@ -3,9 +3,9 @@ import { Briefcase } from "lucide-react";
 
 export default function AuthLayout({ children }: LayoutProps<"/">) {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted/30 p-6">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-8 bg-background p-6">
       <Link href="/" className="flex items-center gap-2 font-medium">
-        <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-primary shadow-sm text-primary-foreground">
           <Briefcase className="size-4" />
         </span>
         <span className="text-lg font-semibold tracking-tight">Docket</span>

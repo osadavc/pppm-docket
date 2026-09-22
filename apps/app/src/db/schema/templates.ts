@@ -5,7 +5,7 @@ import { createdAt, updatedAt } from "./_shared";
 
 /**
  * A reusable library HR maintains. Templates are COPIED into `positionStages`
- * at position creation — editing a template never rewrites the pipeline of a
+ * at position creation, editing a template never rewrites the pipeline of a
  * live position, so in-flight candidates and past reports stay valid.
  */
 export const stageTemplateSets = pgTable("stage_template_sets", {
@@ -48,7 +48,7 @@ export const stageTemplateCriteria = pgTable(
       .notNull()
       .references(() => stageTemplateStages.id, { onDelete: "cascade" }),
     label: text("label").notNull(),
-    /** Rubric text shown to interviewers — reduces rater drift. */
+    /** Rubric text shown to interviewers, reduces rater drift. */
     description: text("description"),
     weight: integer("weight").default(1).notNull(),
     orderIndex: integer("order_index").notNull(),

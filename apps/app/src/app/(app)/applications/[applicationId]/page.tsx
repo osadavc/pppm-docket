@@ -69,12 +69,12 @@ function DetailsTab({
       header.candidatePhone ? (
         <ClickToCopy value={header.candidatePhone} label="Phone" />
       ) : (
-        "—"
+        "-"
       ),
     ],
-    ["Location", header.candidateLocation || "—"],
-    ["Current title", header.currentTitle || "—"],
-    ["Company", header.currentCompany || "—"],
+    ["Location", header.candidateLocation || "-"],
+    ["Current title", header.currentTitle || "-"],
+    ["Company", header.currentCompany || "-"],
     [
       "Source",
       CANDIDATE_SOURCE_LABELS[header.source as keyof typeof CANDIDATE_SOURCE_LABELS] ??
@@ -83,11 +83,11 @@ function DetailsTab({
     ["Applied", formatDate(header.appliedAt)],
     [
       "Salary expectation",
-      seesEverything ? header.salaryExpectation || "—" : (
+      seesEverything ? header.salaryExpectation || "-" : (
         <span className="text-muted-foreground">Restricted</span>
       ),
     ],
-    ["Resolved", header.decisionAt ? formatDate(header.decisionAt) : "—"],
+    ["Resolved", header.decisionAt ? formatDate(header.decisionAt) : "-"],
     [
       "Added by",
       header.createdByName ?? "Candidate via careers site",
@@ -244,7 +244,7 @@ export default async function ApplicationPage({
           <AlertTitle>
             Rejected
             {header.rejectionReason
-              ? ` — ${REJECTION_REASON_LABELS[header.rejectionReason as keyof typeof REJECTION_REASON_LABELS] ?? header.rejectionReason}`
+              ? ` · ${REJECTION_REASON_LABELS[header.rejectionReason as keyof typeof REJECTION_REASON_LABELS] ?? header.rejectionReason}`
               : ""}
           </AlertTitle>
           {seesEverything && header.decisionReason ? (

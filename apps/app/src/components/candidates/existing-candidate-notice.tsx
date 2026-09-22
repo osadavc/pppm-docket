@@ -45,13 +45,13 @@ export function ExistingCandidateNotice({
       <AlertDescription className="space-y-2">
         {clash ? (
           <span className="block">
-            They are already on this position — {statusLabel(clash.status).toLowerCase()}
+            They are already on this position: {statusLabel(clash.status).toLowerCase()}
             {clash.stageName ? ` at ${clash.stageName}` : ""}. Choose a
             different position.
           </span>
         ) : (
           <span className="block">
-            Their existing record will be reused — no duplicate is created.
+            Their existing record will be reused, so no duplicate is created.
           </span>
         )}
 

@@ -79,31 +79,45 @@ export function composeHtml(text: string, companyName = "Docket") {
     .split(/\n{2,}/)
     .map(
       (paragraph) =>
-        `<p style="margin:0 0 16px 0;">${escapeHtml(paragraph).replace(/\n/g, "<br/>")}</p>`,
+        `<p style="margin:0 0 18px 0;">${escapeHtml(paragraph).replace(/\n/g, "<br/>")}</p>`,
     )
     .join("\n");
+  const company = escapeHtml(companyName);
+  const initial = escapeHtml(companyName.trim().charAt(0).toUpperCase() || "D");
 
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
   </head>
-  <body style="margin:0;padding:24px;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18181b;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e4e4e7;">
+  <body style="margin:0;padding:0;background:#f6f6f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18181b;-webkit-font-smoothing:antialiased;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f6f7;">
       <tr>
-        <td style="padding:20px 28px;border-bottom:1px solid #e4e4e7;font-size:14px;font-weight:600;letter-spacing:0.02em;">
-          ${escapeHtml(companyName)} Hiring
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:28px;font-size:15px;line-height:1.6;">
+        <td align="center" style="padding:40px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+            <tr>
+              <td style="padding:0 4px 20px 4px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td width="28" height="28" align="center" valign="middle" style="width:28px;height:28px;background:#18181b;border-radius:7px;color:#ffffff;font-size:13px;font-weight:600;line-height:28px;">${initial}</td>
+                    <td style="padding-left:10px;font-size:14px;font-weight:600;letter-spacing:-0.01em;color:#18181b;">${company} Hiring</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#ffffff;border:1px solid #e8e8eb;border-radius:12px;padding:36px 36px 20px 36px;font-size:15px;line-height:1.65;color:#27272a;">
 ${paragraphs}
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:16px 28px;border-top:1px solid #e4e4e7;font-size:12px;color:#71717a;">
-          This message was sent by the ${escapeHtml(companyName)} hiring team.
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 4px 0 4px;font-size:12px;line-height:1.5;color:#8b8b93;">
+                Sent by the ${company} hiring team.
+              </td>
+            </tr>
+          </table>
         </td>
       </tr>
     </table>

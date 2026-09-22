@@ -96,7 +96,7 @@ export async function advanceApplicationAs(
     return fail("That candidate is not on a stage.");
   }
 
-  // AC: there is nothing after the last stage — the decision at the end of a
+  // AC: there is nothing after the last stage, the decision at the end of a
   // pipeline is an outcome, not another step.
   if (!context.nextStage) {
     return fail(
@@ -168,7 +168,7 @@ export async function advanceApplicationAs(
       .set({ currentStageId: to.id })
       .where(eq(applications.id, applicationId));
 
-    // Who, from where, to where, and when — on the candidate's own timeline.
+    // Who, from where, to where, and when, on the candidate's own timeline.
     await logActivity(tx, {
       actorId: actor.id,
       action: overridden ? "application.advanced.override" : "application.advanced",
@@ -271,7 +271,7 @@ export async function rejectApplicationAs(
       })
       .where(eq(applications.id, applicationId));
 
-    // The stage they were on is where they dropped out — record that rather
+    // The stage they were on is where they dropped out, record that rather
     // than leaving it looking in-progress forever.
     if (context.currentStage) {
       await tx
@@ -292,7 +292,7 @@ export async function rejectApplicationAs(
       entityId: applicationId,
       applicationId,
       positionId: context.positionId,
-      summary: `${actor.name} rejected ${context.candidateName} at “${context.currentStage?.name ?? "—"}” — ${REJECTION_REASON_LABELS[reason]}`,
+      summary: `${actor.name} rejected ${context.candidateName} at “${context.currentStage?.name ?? "-"}”: ${REJECTION_REASON_LABELS[reason]}`,
       metadata: {
         reason,
         reasonLabel: REJECTION_REASON_LABELS[reason],

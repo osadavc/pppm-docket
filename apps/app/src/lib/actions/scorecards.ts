@@ -598,7 +598,7 @@ export async function saveScorecard(
     }
     if (error instanceof ScorecardRevisionConflictError) {
       return fail(
-        "This feedback was changed by another session — reload and try again.",
+        "This feedback was changed by another session. Reload and try again.",
       );
     }
     throw error;

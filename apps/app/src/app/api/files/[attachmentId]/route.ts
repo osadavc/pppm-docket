@@ -29,7 +29,7 @@ export async function GET(
   }
 
   const { attachmentId } = await params;
-  // A malformed id is simply a file that does not exist — after the auth
+  // A malformed id is simply a file that does not exist, after the auth
   // check, so an anonymous probe learns nothing from the status code.
   if (!isUuid(attachmentId)) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });

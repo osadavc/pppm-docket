@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 /**
  * Open a dialog from a single keypress. Ignored while typing in a field,
- * while any dialog is already open, and when a modifier is held — so "a" in
+ * while any dialog is already open, and when a modifier is held, so "a" in
  * a note never fires an advance.
  */
 export function useDialogShortcut(

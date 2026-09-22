@@ -25,7 +25,7 @@ export default async function AppliedPage({
         <CircleCheck className="size-6" aria-hidden />
       </span>
       <h1 className="mt-6 text-3xl font-semibold tracking-tight">
-        Thanks — you&apos;re in the running for {role.title}.
+        Thanks, you&apos;re in the running for {role.title}.
       </h1>
       <p className="text-muted-foreground mt-3 text-sm">
         We have your application and CV. We read every application and will

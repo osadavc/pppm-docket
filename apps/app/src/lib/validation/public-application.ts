@@ -18,7 +18,7 @@ export const publicApplicationSchema = z.object({
     .min(2, "Enter your full name")
     .max(160, "Name is too long"),
   // Normalise before validating so " Pat@Example.com " is the same person
-  // as "pat@example.com" — the unique index compares the stored form.
+  // as "pat@example.com", the unique index compares the stored form.
   email: z
     .string()
     .trim()

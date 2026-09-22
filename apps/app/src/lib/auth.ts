@@ -39,7 +39,7 @@ export const auth = betterAuth({
     additionalFields: {
       /**
        * Domain role. `input: false` is what stops a self-signup from minting an
-       * HR account — role can only be set by the seed script or by Management
+       * HR account, role can only be set by the seed script or by Management
        * through /admin/users.
        */
       role: {
@@ -104,7 +104,7 @@ export const auth = betterAuth({
     cookieCache: { enabled: false },
   },
 
-  // Must be last — lets Server Actions set auth cookies.
+  // Must be last, lets Server Actions set auth cookies.
   plugins: [nextCookies()],
 });
 

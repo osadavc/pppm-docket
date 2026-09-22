@@ -22,7 +22,7 @@ import type { SessionUser } from "@/lib/auth/guards";
 export function AppSidebar({ user }: { user: SessionUser }) {
   const pathname = usePathname();
 
-  // The sidebar hides what the server would refuse — it is not the enforcement
+  // The sidebar hides what the server would refuse, it is not the enforcement
   // point. Every route re-checks on the server.
   const groups = navGroupsForRole(user.role);
 
@@ -33,7 +33,7 @@ export function AppSidebar({ user }: { user: SessionUser }) {
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg">
               <Link href="/dashboard">
-                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
                   <Briefcase className="size-4" />
                 </span>
                 <span className="grid flex-1 text-left leading-tight">

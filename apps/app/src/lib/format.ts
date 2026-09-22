@@ -1,5 +1,5 @@
 export function formatDate(value: Date | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "-";
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: "short",
@@ -8,7 +8,7 @@ export function formatDate(value: Date | null | undefined) {
 }
 
 export function formatDateTime(value: Date | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "-";
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: "short",
@@ -32,7 +32,7 @@ export const EMPLOYMENT_TYPE_LABELS = {
   internship: "Internship",
 } as const;
 
-/** "A", "A and B", "A, B and C" — for sentences that name people. */
+/** "A", "A and B", "A, B and C", for sentences that name people. */
 export function formatNameList(names: readonly string[]) {
   if (names.length === 0) return "";
   if (names.length === 1) return names[0];

@@ -28,7 +28,7 @@ export const advanceApplicationSchema = z.object({
   /**
    * Present only when HR is deliberately moving someone past an unsatisfied
    * feedback gate. Required in that case so the reason is on the record, and
-   * long enough that "ok" cannot pass for one — the same floor the dialog
+   * long enough that "ok" cannot pass for one, the same floor the dialog
    * applies before enabling the button.
    */
   overrideReason: z.preprocess(

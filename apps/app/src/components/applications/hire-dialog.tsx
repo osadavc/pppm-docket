@@ -127,7 +127,7 @@ export function HireDialog({
               <DialogHeader>
                 <DialogTitle>Hire {context.candidateName}</DialogTitle>
                 <DialogDescription>
-                  {context.positionTitle} — {fill.hired} of {fill.openings} opening
+                  {context.positionTitle} · {fill.hired} of {fill.openings} opening
                   {fill.openings === 1 ? "" : "s"} filled so far.
                 </DialogDescription>
               </DialogHeader>

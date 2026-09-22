@@ -109,7 +109,7 @@ function ApprovalsSection({ approvals }: { approvals: PendingApproval[] }) {
                     {p.title}
                   </Link>
                   <p className="text-muted-foreground text-xs">
-                    {p.department} · requested by {p.submittedByName ?? "—"}
+                    {p.department} · requested by {p.submittedByName ?? "-"}
                     {p.submittedAt ? ` on ${formatDate(p.submittedAt)}` : ""}
                   </p>
                 </div>

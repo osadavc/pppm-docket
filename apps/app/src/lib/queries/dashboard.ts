@@ -29,9 +29,9 @@ export type PositionOverview = {
 
 /**
  * Active applications whose gate is `feedback_outstanding`, per position, in
- * one statement: the same rule as `evaluateStageGate` — position switch on,
+ * one statement: the same rule as `evaluateStageGate`, position switch on,
  * stage needs a scorecard, a non-empty active panel, and fewer submissions
- * than min(minScorecards, panel) — expressed as SQL so nothing is loaded to be
+ * than min(minScorecards, panel), expressed as SQL so nothing is loaded to be
  * counted.
  */
 export async function getBlockedOnFeedbackByPosition(): Promise<Map<string, number>> {

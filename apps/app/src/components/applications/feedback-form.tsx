@@ -23,6 +23,7 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/app/markdown-editor";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   saveScorecard,
@@ -258,24 +259,22 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
               </FieldError>
               <Field data-invalid={Boolean(fieldErrors.strengths?.[0])}>
                 <FieldLabel htmlFor="strengths">Strengths</FieldLabel>
-                <Textarea
+                <MarkdownEditor
                   id="strengths"
                   name="strengths"
-                  rows={4}
-                  maxLength={5000}
-                  aria-invalid={Boolean(fieldErrors.strengths?.[0])}
+                  minRows={4}
+                  invalid={Boolean(fieldErrors.strengths?.[0])}
                   defaultValue={context.scorecard?.strengths}
                 />
                 <FieldError>{fieldErrors.strengths?.[0]}</FieldError>
               </Field>
               <Field data-invalid={Boolean(fieldErrors.concerns?.[0])}>
                 <FieldLabel htmlFor="concerns">Concerns</FieldLabel>
-                <Textarea
+                <MarkdownEditor
                   id="concerns"
                   name="concerns"
-                  rows={4}
-                  maxLength={5000}
-                  aria-invalid={Boolean(fieldErrors.concerns?.[0])}
+                  minRows={4}
+                  invalid={Boolean(fieldErrors.concerns?.[0])}
                   defaultValue={context.scorecard?.concerns}
                 />
                 <FieldError>{fieldErrors.concerns?.[0]}</FieldError>
@@ -285,12 +284,11 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
                 data-invalid={Boolean(fieldErrors.notes?.[0])}
               >
                 <FieldLabel htmlFor="notes">Private notes</FieldLabel>
-                <Textarea
+                <MarkdownEditor
                   id="notes"
                   name="notes"
-                  rows={3}
-                  maxLength={5000}
-                  aria-invalid={Boolean(fieldErrors.notes?.[0])}
+                  minRows={3}
+                  invalid={Boolean(fieldErrors.notes?.[0])}
                   defaultValue={context.scorecard?.notes}
                 />
                 <FieldDescription>

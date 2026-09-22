@@ -20,11 +20,11 @@ import type { ScorecardRevisionView } from "@/lib/queries/scorecard-revisions";
 import { RECOMMENDATION_LABELS } from "@/lib/validation/scorecard";
 
 function recommendationLabel(value: ScorecardRevisionView["recommendation"]) {
-  return value ? RECOMMENDATION_LABELS[value] : "—";
+  return value ? RECOMMENDATION_LABELS[value] : "-";
 }
 
 function scoreLabel(value: string | null) {
-  return value ? `${Number(value).toFixed(2)} / 5` : "—";
+  return value ? `${Number(value).toFixed(2)} / 5` : "-";
 }
 
 function ValueDelta({ before, after }: { before: string; after: string }) {
@@ -50,7 +50,7 @@ function NarrativeDiff({
   if (original === updated) {
     return (
       <p className="text-muted-foreground whitespace-pre-wrap">
-        {updated || "—"}
+        {updated || "-"}
       </p>
     );
   }

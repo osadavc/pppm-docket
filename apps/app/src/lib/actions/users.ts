@@ -30,7 +30,7 @@ import { fail, ok, type ActionResult } from "./result";
  * The user is created through better-auth's internal adapter rather than
  * `auth.api.signUpEmail()` on purpose: signUpEmail issues a session for the new
  * account, and with the nextCookies plugin active that session cookie would be
- * written onto the *administrator's* browser — silently swapping who they are
+ * written onto the *administrator's* browser, silently swapping who they are
  * logged in as. Going through the adapter creates the account with no session
  * side effects, while still using better-auth's own password hasher so the new
  * user can sign in immediately.
@@ -106,7 +106,7 @@ export async function createStaffAccount(
  * Change a user's role.
  *
  * Takes effect on the target's next request because `session.cookieCache` is
- * disabled — see the note in lib/auth.ts. Nothing is cached, so no session
+ * disabled, see the note in lib/auth.ts. Nothing is cached, so no session
  * revocation is needed and the user stays signed in.
  */
 export async function changeUserRole(
@@ -175,7 +175,7 @@ export async function changeUserRole(
  * Set a new password for a user.
  *
  * Hashed with better-auth's own hasher so the account keeps working, and all of
- * the target's sessions are deleted in the same transaction — a password reset
+ * the target's sessions are deleted in the same transaction, a password reset
  * should not leave an existing session alive on someone else's machine.
  */
 export async function setUserPassword(
@@ -234,7 +234,7 @@ export async function setUserPassword(
  * Deactivate a departing colleague, or bring them back.
  *
  * Deactivation flips `isActive` and deletes every session for the account in
- * one transaction, so access ends on their very next request — there is no
+ * one transaction, so access ends on their very next request, there is no
  * cookie cache to wait out. Sign-in is refused at the auth layer while the
  * flag is off. The last active manager cannot be deactivated: that would lock
  * user management for everyone.

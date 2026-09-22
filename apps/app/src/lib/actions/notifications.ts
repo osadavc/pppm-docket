@@ -15,7 +15,7 @@ import { fail, ok, type ActionResult } from "./result";
 /**
  * A free-form message from HR to a candidate, recorded like every other
  * message: written to the outbox first, dispatched after commit, and left in
- * the log whatever the provider says. HR only — management may read the log
+ * the log whatever the provider says. HR only, management may read the log
  * but not write to candidates from it.
  */
 export async function sendCustomCandidateEmail(

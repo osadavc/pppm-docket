@@ -27,7 +27,7 @@ export function buildCvPdf(input: {
     [13, "Experience", 0],
     ...input.history.map((line): [number, string, number] => [11, line, 0]),
     [12, "", 0],
-    [9, "Generated demo CV — every detail here is fictional.", 0],
+    [9, "Generated demo CV: every detail here is fictional.", 0],
   ];
 
   let y = 760;

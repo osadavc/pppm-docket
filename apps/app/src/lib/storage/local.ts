@@ -8,8 +8,8 @@ import { env } from "@/env";
 /**
  * Disk-backed stand-in for Supabase Storage, used when STORAGE_DRIVER=local.
  *
- * It mirrors the slice of `supabase.storage.from(bucket)` the app calls —
- * upload, remove, createSignedUrl — so nothing above lib/storage changes.
+ * It mirrors the slice of `supabase.storage.from(bucket)` the app calls -
+ * upload, remove, createSignedUrl, so nothing above lib/storage changes.
  * Files live under LOCAL_STORAGE_DIR/<bucket>/<path>; the "signed URL" points
  * at /api/storage and carries an HMAC over (bucket, path, expiry, download
  * name), keyed by BETTER_AUTH_SECRET, so it is as short-lived and unguessable

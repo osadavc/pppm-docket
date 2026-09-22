@@ -22,7 +22,7 @@ export const user = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
     // Domain fields. better-auth stores role as a plain string, so the column
-    // stays text rather than a pg enum — restructuring generated auth tables
+    // stays text rather than a pg enum, restructuring generated auth tables
     // breaks the adapter. The CHECK gives the same guarantee an enum would.
     role: text("role").default("interviewer").notNull(),
     jobTitle: text("job_title"),

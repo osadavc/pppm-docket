@@ -38,7 +38,7 @@ export const applications = pgTable(
     }),
     /**
      * The structured, reportable reason. Required whenever status is
-     * 'rejected' — enforced by a CHECK constraint, so a rejection without a
+     * 'rejected', enforced by a CHECK constraint, so a rejection without a
      * reason is impossible even from a direct SQL write.
      */
     rejectionReason: rejectionReason("rejection_reason"),
@@ -74,8 +74,8 @@ export const applications = pgTable(
 /**
  * Materialized per-application progress: rows for ALL of the position's stages
  * are inserted when the application is created. This makes the two hardest
- * queries trivial — "is this stage's feedback in?" and "how long did each
- * candidate sit in each stage?" — and gives scorecards and interviews a stable
+ * queries trivial, "is this stage's feedback in?" and "how long did each
+ * candidate sit in each stage?", and gives scorecards and interviews a stable
  * FK target.
  */
 export const applicationStages = pgTable(

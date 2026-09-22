@@ -8,8 +8,8 @@ import { account, activityLog, applications, candidates, positions, user } from 
 
 /**
  * Shared Playwright fixtures. Staff accounts are provisioned the way
- * createStaffAccount does — a user row plus a credential account carrying
- * better-auth's own password hash — because the public sign-up endpoint is
+ * createStaffAccount does, a user row plus a credential account carrying
+ * better-auth's own password hash, because the public sign-up endpoint is
  * closed. No test goes through a public API to mint a user.
  */
 const databaseUrl = process.env.DATABASE_URL;

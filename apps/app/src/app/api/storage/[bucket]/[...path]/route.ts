@@ -3,7 +3,7 @@ import { env } from "@/env";
 import { readObject, verifyObjectSignature } from "@/lib/storage/local";
 
 /**
- * Serves a file from local disk storage (STORAGE_DRIVER=local) — the local
+ * Serves a file from local disk storage (STORAGE_DRIVER=local), the local
  * equivalent of a Supabase signed URL. Only reachable with a signature minted
  * by /api/files/[attachmentId] after it has authorized the caller.
  */

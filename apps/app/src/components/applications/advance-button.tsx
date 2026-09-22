@@ -74,7 +74,7 @@ export function AdvanceButton({
   const usable = !context.isFinalStage && Boolean(context.nextStage) && context.status === "active";
   useDialogShortcut(usable ? shortcutKey : undefined, open, openDialog);
 
-  // Nothing follows the last stage — the end of a pipeline is an outcome.
+  // Nothing follows the last stage, the end of a pipeline is an outcome.
   if (context.isFinalStage) {
     return (
       <Button size="sm" variant="outline" disabled title="Hire or reject instead">
@@ -184,7 +184,7 @@ export function AdvanceButton({
             {needsOverride ? (
               <Field>
                 <FieldLabel htmlFor="override">
-                  Advance anyway — record a reason
+                  Advance anyway and record a reason
                 </FieldLabel>
                 <Textarea
                   id="override"

@@ -8,7 +8,7 @@ import { submitPublicApplication } from "@/lib/services/public-applications";
 import type { ActionResult } from "./result";
 
 /**
- * The one unauthenticated mutation in the app. No session, no permission —
+ * The one unauthenticated mutation in the app. No session, no permission -
  * every safeguard (honeypot, rate limit, deadline, file checks, duplicate
  * refusal) lives in the service, and the action only adds the caller's
  * address and the redirect.

@@ -16,7 +16,7 @@ import { interviews } from "./interviews";
 import { createdAt, tstz, updatedAt } from "./_shared";
 
 /**
- * Every intended message is recorded before dispatch — this is both the audit
+ * Every intended message is recorded before dispatch, this is both the audit
  * trail and what makes the feature demonstrable when a mailbox is not on
  * screen. With NOTIFICATIONS_ENABLED=false rows are still written, just never
  * dispatched.
@@ -37,7 +37,7 @@ export const notifications = pgTable(
     ),
     /**
      * The authenticated person who approved this intended message. Null once
-     * that account is deleted — the audit row outlives the actor.
+     * that account is deleted, the audit row outlives the actor.
      */
     actorId: text("actor_id").references(() => user.id, {
       onDelete: "set null",

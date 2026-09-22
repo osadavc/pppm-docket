@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Markdown } from "@/components/app/markdown";
 import { ChevronDown, MessageSquareText, Pencil } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +45,7 @@ function narrative(value: string | null) {
 }
 
 function overallScore(value: string | null) {
-  return value ? `${Number(value).toFixed(2)} / 5` : "—";
+  return value ? `${Number(value).toFixed(2)} / 5` : "-";
 }
 
 function ScorecardNarrative({
@@ -56,21 +57,15 @@ function ScorecardNarrative({
     <dl className="grid gap-5 lg:grid-cols-2">
       <div className="flex flex-col gap-1.5">
         <dt className="font-medium">Strengths</dt>
-        <dd className="text-muted-foreground whitespace-pre-wrap">
-          {narrative(scorecard.strengths)}
-        </dd>
+        <dd><Markdown className="text-muted-foreground">{narrative(scorecard.strengths)}</Markdown></dd>
       </div>
       <div className="flex flex-col gap-1.5">
         <dt className="font-medium">Concerns</dt>
-        <dd className="text-muted-foreground whitespace-pre-wrap">
-          {narrative(scorecard.concerns)}
-        </dd>
+        <dd><Markdown className="text-muted-foreground">{narrative(scorecard.concerns)}</Markdown></dd>
       </div>
       <div className="flex flex-col gap-1.5 lg:col-span-2">
         <dt className="font-medium">Notes</dt>
-        <dd className="text-muted-foreground whitespace-pre-wrap">
-          {narrative(scorecard.notes)}
-        </dd>
+        <dd><Markdown className="text-muted-foreground">{narrative(scorecard.notes)}</Markdown></dd>
       </div>
     </dl>
   );
@@ -196,7 +191,7 @@ export function FeedbackList({
           <Alert>
             <AlertDescription>
               {feedback.hiddenCount} colleague reviews are hidden until you
-              submit your own — independent reads first.
+              submit your own. Independent reads first.
             </AlertDescription>
           </Alert>
         ) : null}

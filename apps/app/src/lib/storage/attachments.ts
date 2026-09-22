@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { assertStorageConfigured, BUCKET, storage } from "./supabase";
 
-/** PDF and Word only — the formats a CV actually arrives in. */
+/** PDF and Word only, the formats a CV actually arrives in. */
 export const ALLOWED_CV_TYPES = {
   "application/pdf": "pdf",
   "application/msword": "doc",
@@ -19,7 +19,7 @@ export type CvValidationError =
 
 /**
  * Validated server-side against the real file, never against a client-supplied
- * name or content-type alone — the accept attribute on an input is a hint to
+ * name or content-type alone, the accept attribute on an input is a hint to
  * the file picker, not a control.
  */
 export function validateCvFile(file: File): CvValidationError | null {
@@ -70,7 +70,7 @@ export async function removeCv(path: string, bucket: string = BUCKET) {
 
 /**
  * Short-lived signed URL. The bucket is private, so this is the only way to
- * read a file — and it is minted only after the caller has been authorized.
+ * read a file, and it is minted only after the caller has been authorized.
  *
  * `inline` omits the `download` option, so the object is served with an
  * inline disposition and a PDF renders in a frame instead of saving; the

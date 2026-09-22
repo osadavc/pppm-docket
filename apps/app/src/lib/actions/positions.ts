@@ -38,7 +38,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
  *
  * Prefers the stage template set flagged `isDefault`; falls back to
  * DEFAULT_STAGES so a position is never created without a usable pipeline.
- * Either way the stages are COPIED — the position owns them from here on, so
+ * Either way the stages are COPIED, the position owns them from here on, so
  * customising this pipeline never affects another position or a template.
  */
 async function seedStages(tx: Tx, positionId: string) {
@@ -203,7 +203,7 @@ export async function canEditStagesDestructively(positionId: string) {
  * The ONLY place `positions.status` is written.
  *
  * Every status change goes through the transition map, so no action can move a
- * position somewhere the lifecycle forbids — in particular draft -> open.
+ * position somewhere the lifecycle forbids, in particular draft -> open.
  * Returns the guard failure rather than throwing so callers can surface it.
  */
 async function transitionStatus(
@@ -325,7 +325,7 @@ export async function approvePosition(
       entityType: "position",
       entityId: positionId,
       positionId,
-      summary: `${actor.name} approved “${existing.title}” — it is now open and on the careers board`,
+      summary: `${actor.name} approved “${existing.title}”. It is now open and on the careers board`,
       metadata: {
         from: existing.status,
         to: "open",
@@ -439,7 +439,7 @@ export async function closePosition(
   const now = new Date();
 
   const result = await db.transaction(async (tx) => {
-    // closedAt is the moment the search ended — time-to-fill is measured from
+    // closedAt is the moment the search ended, time-to-fill is measured from
     // openedAt to here, so it must be stamped on every terminal outcome.
     const moved = await transitionStatus(tx, positionId, existing.status, status, {
       closedAt: now,

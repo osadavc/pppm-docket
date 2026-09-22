@@ -3,7 +3,7 @@ import { describe, test } from "node:test";
 import { ALLOWED_TRANSITIONS, canTransition, isTerminalStatus, transitionError } from "./position-status";
 
 describe("canTransition", () => {
-  test("draft can never open directly — it must be approved first", () => {
+  test("draft can never open directly. It must be approved first", () => {
     assert.equal(canTransition("draft", "open"), false);
     assert.equal(canTransition("draft", "pending_approval"), true);
     assert.equal(canTransition("pending_approval", "open"), true);

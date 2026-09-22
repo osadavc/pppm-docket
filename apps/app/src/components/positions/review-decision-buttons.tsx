@@ -56,7 +56,7 @@ export function ReviewDecisionButtons({
     }
     toast.success(
       mode === "approve"
-        ? "Approved — the position is now on the careers board"
+        ? "Approved. The position is now on the careers board"
         : "Returned to HR with your note",
     );
     close();

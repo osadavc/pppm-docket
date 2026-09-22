@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/app/markdown-editor";
 import { addCandidate, lookupCandidateByEmail } from "@/lib/actions/candidates";
 import { ExistingCandidateNotice } from "@/components/candidates/existing-candidate-notice";
 import type { ExistingCandidate } from "@/lib/queries/candidates";
@@ -46,7 +46,7 @@ export function CandidateForm({ positions }: { positions: OpenPosition[] }) {
   const [positionId, setPositionId] = useState(positions[0]?.id ?? "");
   const [existing, setExisting] = useState<ExistingCandidate | null>(null);
 
-  // Checked when the email field loses focus rather than on every keystroke —
+  // Checked when the email field loses focus rather than on every keystroke -
   // this reads candidate history, so it should not fire mid-typing.
   async function checkEmail(email: string) {
     if (!email.includes("@")) {
@@ -60,8 +60,8 @@ export function CandidateForm({ positions }: { positions: OpenPosition[] }) {
   const err = (name: string) =>
     fieldErrors[name]?.[0] ? [{ message: fieldErrors[name]![0]! }] : [];
 
-  // HR may still add someone after the public window closed — a late referral
-  // is their call — but they should know they are doing it, and the record
+  // HR may still add someone after the public window closed, a late referral
+  // is their call, but they should know they are doing it, and the record
   // will say so.
   const selectedPosition = positions.find((p) => p.id === positionId);
   const [openedAt] = useState(() => Date.now());
@@ -190,7 +190,7 @@ export function CandidateForm({ positions }: { positions: OpenPosition[] }) {
               <SelectContent>
                 {positions.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.title} — {p.department}
+                    {p.title} · {p.department}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -239,7 +239,7 @@ export function CandidateForm({ positions }: { positions: OpenPosition[] }) {
 
           <Field>
             <FieldLabel htmlFor="notes">Notes</FieldLabel>
-            <Textarea id="notes" name="notes" rows={3} />
+            <MarkdownEditor id="notes" name="notes" minRows={3} />
           </Field>
         </CardContent>
       </Card>

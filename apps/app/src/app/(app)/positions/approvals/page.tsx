@@ -69,7 +69,7 @@ export default async function ApprovalsPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{p.department}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {p.submittedByName ?? "—"}
+                      {p.submittedByName ?? "-"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDateTime(p.submittedAt)}

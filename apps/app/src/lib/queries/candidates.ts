@@ -95,7 +95,7 @@ export type ExistingCandidate = {
 
 /**
  * Look a person up by email so HR can see they are already on file *before*
- * adding them again — the point of de-duplicating is knowing the history, not
+ * adding them again, the point of de-duplicating is knowing the history, not
  * just silently reusing a row.
  *
  * Matched case-insensitively: emails are stored lowercased, but a human typing
@@ -153,7 +153,7 @@ export type CandidateSearchRow = {
  * Server-side search and paging over the applicant pool.
  *
  * One row per application rather than per candidate, because the filters HR
- * cares about — stage and status — belong to an application, not a person.
+ * cares about, stage and status, belong to an application, not a person.
  * Everything is applied in SQL: nothing is fetched and then discarded, so the
  * cost of a page is the page, not the pool.
  */
@@ -225,7 +225,7 @@ export async function searchCandidates(search: CandidateSearch) {
     .offset(offset);
 
   // A window function cannot report a total for a page that has no rows, so
-  // only then do we pay for a second query — a rare path (paging past the end).
+  // only then do we pay for a second query, a rare path (paging past the end).
   let total = rows[0]?.total ?? 0;
   if (rows.length === 0 && search.page > 1) {
     const [counted] = await db
@@ -244,7 +244,7 @@ export async function searchCandidates(search: CandidateSearch) {
   };
 }
 
-/** Stage options for the filter bar — only meaningful once a position is chosen. */
+/** Stage options for the filter bar, only meaningful once a position is chosen. */
 export async function listStagesForFilter(positionId: string) {
   if (!positionId) return [];
   return db
@@ -259,7 +259,7 @@ export async function listStagesForFilter(positionId: string) {
     .orderBy(asc(positionStages.orderIndex));
 }
 
-/** Every position, so HR can filter closed ones too — not just open roles. */
+/** Every position, so HR can filter closed ones too, not just open roles. */
 export async function listAllPositionsForFilter() {
   return db
     .select({ id: positions.id, title: positions.title })

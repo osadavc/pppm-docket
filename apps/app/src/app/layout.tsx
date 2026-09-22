@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Docket — Hiring Tracker",
+  title: "Docket · Hiring tracker",
   description:
     "Open positions, track candidates through a configurable interview process, and reach a hire decision.",
 };

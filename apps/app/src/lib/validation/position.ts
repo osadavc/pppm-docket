@@ -8,7 +8,7 @@ import { z } from "zod";
  * types. Values arrive as the strings an HTML form produces and are normalised
  * server-side by `normalizePositionInput`.
  *
- * Draft rules are loose on purpose — a draft exists so a vacancy can be
+ * Draft rules are loose on purpose, a draft exists so a vacancy can be
  * prepared before it is advertised, so only a title and department are
  * required. Publishing will apply a stricter schema; that belongs with the
  * publish story.
@@ -113,7 +113,7 @@ export const rejectPositionSchema = z.object({
   note: z
     .string()
     .trim()
-    .min(10, "Tell HR what needs to change — at least 10 characters")
+    .min(10, "Tell HR what needs to change, at least 10 characters")
     .max(2000, "Note is too long"),
 });
 

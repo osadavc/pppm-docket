@@ -193,7 +193,7 @@ export async function addCandidate(
         entityId: applicationId,
         applicationId,
         positionId: d.positionId,
-        summary: `${d.fullName} applied to “${position.title}” and entered the pipeline at “${stages[0]!.name}”${afterDeadline ? ` — added by ${actor.name} after the public deadline (${position.applicationDeadline!.toISOString().slice(0, 10)})` : ""}`,
+        summary: `${d.fullName} applied to “${position.title}” and entered the pipeline at “${stages[0]!.name}”${afterDeadline ? `, added by ${actor.name} after the public deadline (${position.applicationDeadline!.toISOString().slice(0, 10)})` : ""}`,
         metadata: {
           source: d.source,
           addedBy: actor.email,
@@ -221,7 +221,7 @@ export async function addCandidate(
 /**
  * Email lookup for the add-candidate form. Read-only, but a Server Action
  * rather than a route handler so it is authorized the same way every other
- * mutation is — candidate history is not public.
+ * mutation is, candidate history is not public.
  */
 export async function lookupCandidateByEmail(
   email: string,

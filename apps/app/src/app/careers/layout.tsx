@@ -13,9 +13,9 @@ const FOOTER_COPY =
 export default function CareersLayout({ children }: LayoutProps<"/careers">) {
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="border-b">
-        <div className="mx-auto flex h-16 max-w-4xl items-center gap-2 px-6">
-          <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
+      <header className="bg-background/80 sticky top-0 z-20 border-b backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-4xl items-center gap-2.5 px-6">
+          <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-lg shadow-sm">
             <Briefcase className="size-4" />
           </span>
           <Link href="/careers" className="font-semibold tracking-tight">
@@ -29,7 +29,7 @@ export default function CareersLayout({ children }: LayoutProps<"/careers">) {
           </Link>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">{children}</main>
+      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">{children}</main>
       <footer className="text-muted-foreground border-t py-6 text-center text-xs">
         {FOOTER_COPY}
       </footer>

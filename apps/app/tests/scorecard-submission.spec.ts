@@ -209,7 +209,7 @@ test("submit, revise with immutable history, clear the gate, and advance", async
   await signIn(page, interviewerEmail);
   await page.goto(`/applications/${applicationId}/feedback`);
   await expect(
-    page.getByRole("heading", { name: "Your feedback — Evidence interview" }),
+    page.getByRole("heading", { name: "Your feedback: Evidence interview" }),
   ).toBeVisible();
 
   const stalePage = await interviewer.newPage();
@@ -254,7 +254,7 @@ test("submit, revise with immutable history, clear the gate, and advance", async
   await staleEditPage.getByRole("button", { name: "Save changes" }).click();
   await expect(
     staleEditPage.getByText(
-      "This feedback was changed by another session — reload and try again.",
+      "This feedback was changed by another session. Reload and try again.",
       { exact: true },
     ),
   ).toBeVisible();
@@ -364,7 +364,7 @@ test("submit, revise with immutable history, clear the gate, and advance", async
   // Decisions live on the application page; the profile only links there.
   await hrPage.goto(`/applications/${applicationId}`);
   await hrPage.getByRole("button", { name: "Advance", exact: true }).click();
-  await expect(hrPage.getByLabel("Advance anyway — record a reason")).toHaveCount(0);
+  await expect(hrPage.getByLabel("Advance anyway and record a reason")).toHaveCount(0);
   await hrPage.getByRole("button", { name: /^Move to Final review/ }).click();
   await expect(hrPage.getByText(/moved to Final review\./)).toBeVisible();
 

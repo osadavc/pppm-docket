@@ -14,7 +14,7 @@ type StageSeed = Pick<
  * so a position owns its pipeline from day one and can be reshaped without
  * touching any other position or invalidating feedback already given.
  *
- * If a stage template set is marked `isDefault`, that is copied instead — this
+ * If a stage template set is marked `isDefault`, that is copied instead, this
  * is the fallback so a position always gets a usable pipeline, even on a fresh
  * database with no templates configured.
  */

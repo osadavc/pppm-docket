@@ -25,7 +25,7 @@ export const ALLOWED_TRANSITIONS: Record<PositionStatus, readonly PositionStatus
   pending_approval: ["open", "draft", "cancelled"],
   open: ["on_hold", "closed", "filled", "cancelled"],
   on_hold: ["open", "closed", "cancelled"],
-  // Reviving an ended role starts it over as a draft — it must be approved
+  // Reviving an ended role starts it over as a draft, it must be approved
   // again before it can be advertised a second time.
   closed: ["draft"],
   filled: ["closed"],
@@ -38,7 +38,7 @@ export function canTransition(from: PositionStatus, to: PositionStatus) {
 
 export function transitionError(from: PositionStatus, to: PositionStatus) {
   if (from === "draft" && to === "open") {
-    return "A draft cannot be opened directly — it must be approved by management first.";
+    return "A draft cannot be opened directly. It must be approved by management first.";
   }
   return `A position cannot move from ${POSITION_STATUS_LABELS[from]} to ${POSITION_STATUS_LABELS[to]}.`;
 }
@@ -62,7 +62,7 @@ export function isPubliclyVisible(status: PositionStatus) {
 
 /**
  * Whether a role takes new applications right now. Staff adding a candidate
- * by hand pass no deadline — a late referral is HR's call — while the public
+ * by hand pass no deadline, a late referral is HR's call, while the public
  * path passes the position's deadline, which closes the form the moment it
  * passes even though the role stays visible.
  */

@@ -17,8 +17,8 @@ export default async function ProfilePage() {
   const rows: Array<[string, string]> = [
     ["Name", user.name],
     ["Email", user.email],
-    ["Job title", user.jobTitle || "—"],
-    ["Department", user.department || "—"],
+    ["Job title", user.jobTitle || "-"],
+    ["Department", user.department || "-"],
   ];
 
   return (

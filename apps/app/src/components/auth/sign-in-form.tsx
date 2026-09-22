@@ -100,7 +100,7 @@ export function SignInForm({
             {form.formState.isSubmitting ? "Signing in…" : "Sign in"}
           </Button>
           <p className="text-muted-foreground text-center text-sm">
-            Accounts are created by your hiring manager — there is no public
+            Accounts are created by your hiring manager. There is no public
             sign-up.
           </p>
         </CardFooter>

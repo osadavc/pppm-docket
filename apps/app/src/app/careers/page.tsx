@@ -17,7 +17,7 @@ export default async function CareersPage({
   const { department } = await searchParams;
   const requested = typeof department === "string" ? department : "";
 
-  // The only query permitted here — it filters to open roles with a live
+  // The only query permitted here, it filters to open roles with a live
   // deadline, so nothing unapproved or expired can reach this page.
   const roles = await listPublicPositions();
   const groups = groupByDepartment(roles);
@@ -32,7 +32,7 @@ export default async function CareersPage({
         <h1 className="text-3xl font-semibold tracking-tight">Open roles</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           {roles.length === 0
-            ? "Nothing open right now — check back soon."
+            ? "Nothing open right now. Check back soon."
             : `${roles.length} role${roles.length === 1 ? "" : "s"} currently accepting applications at ${COMPANY_NAME}.`}
         </p>
       </div>
@@ -49,7 +49,7 @@ export default async function CareersPage({
 
       {roles.length === 0 ? (
         <Card className="text-muted-foreground p-10 text-center text-sm">
-          Nothing open right now — check back soon.
+          Nothing open right now. Check back soon.
         </Card>
       ) : (
         <div className="space-y-10">

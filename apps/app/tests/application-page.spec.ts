@@ -141,7 +141,7 @@ test("application page per role: HR, management, interviewer", async ({ browser 
   await expect(hr.getByText(/Page 1 of 1 · 1 total/).first()).toBeVisible();
   await expect(hr.getByRole("link", { name: "Open", exact: true })).toHaveAttribute("aria-current", "page");
   await hr.goto("/positions?status=closed&q=zzz-no-such-position");
-  await expect(hr.getByText("No positions match — try clearing the search or status filter.")).toBeVisible();
+  await expect(hr.getByText("No positions match. Try clearing the search or status filter.")).toBeVisible();
   // Position detail: approval history and activity feed are present.
   await hr.goto(`/positions/${positionId}`);
   await expect(hr.getByText("Approval history")).toBeVisible();

@@ -21,7 +21,7 @@ export type AdvanceContext = {
   positionTitle: string;
   status: string;
   currentStage: { id: string; name: string; orderIndex: number } | null;
-  /** The stage they would move to — null when they are already at the end. */
+  /** The stage they would move to, null when they are already at the end. */
   nextStage: { id: string; name: string; orderIndex: number } | null;
   gate: StageGate;
   /** Panel members who have not submitted yet, for a useful refusal. */
@@ -32,7 +32,7 @@ export type AdvanceContext = {
 /**
  * Everything needed to decide whether a candidate can move on, and to explain
  * the answer. Used by the UI to render the control and by the action to make
- * the decision — the action re-runs this against live rows rather than
+ * the decision, the action re-runs this against live rows rather than
  * trusting whatever the page was rendered with.
  */
 export async function getAdvanceContext(
@@ -65,7 +65,7 @@ export async function getAdvanceContext(
 
   if (!row) return null;
 
-  // The next stage is the next one still on the live pipeline — archived
+  // The next stage is the next one still on the live pipeline, archived
   // stages are skipped over rather than advanced into.
   const nextStage =
     row.stageOrder === null
@@ -138,7 +138,7 @@ export type RejectionBreakdownRow = {
 
 /**
  * Drop-out analysis for a position. Possible only because the reason is an
- * enum column — this is the payoff for not storing it as free text.
+ * enum column, this is the payoff for not storing it as free text.
  */
 export async function getRejectionBreakdown(
   positionId: string,

@@ -93,7 +93,7 @@ export function CreateUserDialog() {
           <DialogHeader>
             <DialogTitle>Create staff account</DialogTitle>
             <DialogDescription>
-              The account is active straight away — share the password with them
+              The account is active straight away. Share the password with them
               directly.
             </DialogDescription>
           </DialogHeader>

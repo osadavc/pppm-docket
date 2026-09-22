@@ -165,7 +165,7 @@ test(
       assert.equal(tooShort.ok, false);
       assert.ok(!tooShort.ok && tooShort.fieldErrors?.overrideReason);
 
-      // 3. Management holds application:manage? No — only HR may advance.
+      // 3. Management holds application:manage? No, only HR may advance.
       const notHr = await advanceApplicationAs(leadSession, {
         applicationId: aliceApp.id,
         overrideReason: "Panel member on leave, manager approved.",
@@ -245,7 +245,7 @@ test(
 
       // 5. Rejection with edited text: stored verbatim; internal note never in the email.
       const edited = {
-        subject: `  Thanks, Bob — about ${marker}  `,
+        subject: `  Thanks, Bob, about ${marker}  `,
         body: "Hi Bob,\n\nWe edited this line by hand.\n\nRegards",
       };
       const rejected = await rejectApplicationAs(

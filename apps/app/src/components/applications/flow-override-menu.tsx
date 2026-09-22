@@ -42,7 +42,7 @@ const COPY: Record<Kind, { title: string; blurb: string; cta: string }> = {
   skip: {
     title: "Skip this stage",
     blurb:
-      "The stage is recorded as skipped, not passed — the record will not imply feedback that was never given.",
+      "The stage is recorded as skipped, not passed, so the record will not imply feedback that was never given.",
     cta: "Skip stage",
   },
   back: {
@@ -157,7 +157,7 @@ export function FlowOverrideMenu({ context }: { context: AdvanceContext }) {
           <DialogHeader>
             <DialogTitle>{kind ? COPY[kind].title : ""}</DialogTitle>
             <DialogDescription>
-              {context.candidateName} — {context.currentStage?.name ?? "no stage"}
+              {context.candidateName} · {context.currentStage?.name ?? "no stage"}
             </DialogDescription>
           </DialogHeader>
 

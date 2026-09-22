@@ -23,7 +23,7 @@ const DOTS: Record<Pace["level"], string> = {
 export function PaceBadge({ pace }: { pace: Pace }) {
   return (
     <span
-      title={`${PACE_DESCRIPTIONS[pace.level]} — ${pace.label} in this stage`}
+      title={`${PACE_DESCRIPTIONS[pace.level]}, ${pace.label} in this stage`}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium",
         STYLES[pace.level],
@@ -31,7 +31,7 @@ export function PaceBadge({ pace }: { pace: Pace }) {
     >
       <span className={cn("size-1.5 rounded-full", DOTS[pace.level])} aria-hidden />
       {pace.label}
-      <span className="sr-only"> in stage — {PACE_DESCRIPTIONS[pace.level]}</span>
+      <span className="sr-only"> in stage, {PACE_DESCRIPTIONS[pace.level]}</span>
     </span>
   );
 }

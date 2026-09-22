@@ -241,7 +241,7 @@ export function ActivityTimeline({ entries }: { entries: TimelineEntry[] }) {
               ) : null}
               {entry.meta ? <MetaLines meta={entry.meta} /> : null}
               <p className="text-muted-foreground mt-1 text-xs">
-                <span className="sr-only">{KIND_LABELS[entry.kind]} — </span>
+                <span className="sr-only">{KIND_LABELS[entry.kind]}: </span>
                 {entry.actorName ? `${entry.actorName} · ` : ""}
                 {formatDateTime(entry.at)}
               </p>

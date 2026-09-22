@@ -129,7 +129,7 @@ async function loadTransport(): Promise<EmailTransport> {
  *
  * Exactly one dispatcher can claim a row at a time; the claim is the only
  * concurrency control needed because the provider is given a key derived from
- * the row id. Every path returns a structured outcome — including the case
+ * the row id. Every path returns a structured outcome, including the case
  * where the provider answered but the outbox could not be updated, which is
  * reported rather than swallowed so the caller can surface "check the Emails
  * panel" instead of pretending everything is fine.

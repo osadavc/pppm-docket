@@ -1,11 +1,11 @@
 /**
- * One command for a fully local stack — no Supabase:
+ * One command for a fully local stack, no Supabase:
  *
  *   bun run local
  *
  * 1. starts Postgres in Docker (docker-compose.yml) on a free host port
  * 2. applies the Drizzle migrations
- * 3. seeds demo data (idempotent — existing rows are kept)
+ * 3. seeds demo data (idempotent, existing rows are kept)
  * 4. runs `next dev` on a free port, with CVs stored on disk (apps/app/.storage)
  *
  * Every value below can be overridden from the shell, e.g. `PORT=4000 bun run local`.

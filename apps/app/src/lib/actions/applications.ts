@@ -64,7 +64,7 @@ export async function advanceApplication(
 
 type StageRef = { id: string; name: string; orderIndex: number };
 
-/** The live pipeline, in order — archived stages are not valid destinations. */
+/** The live pipeline, in order, archived stages are not valid destinations. */
 async function livePipeline(positionId: string): Promise<StageRef[]> {
   return db
     .select({
@@ -129,7 +129,7 @@ async function enterStage(
  *
  * Distinct from advancing: the stage is recorded as `skipped`, not `passed`,
  * so the record never implies feedback that was never given. The feedback gate
- * is intentionally not consulted — skipping is the exception to it.
+ * is intentionally not consulted, skipping is the exception to it.
  */
 export async function skipStage(
   input: SkipStageInput,
@@ -202,7 +202,7 @@ export async function skipStage(
  * Send a candidate back to an earlier stage.
  *
  * The stage they are leaving returns to `pending` rather than being marked
- * passed or failed — they are genuinely no longer there, and nothing about
+ * passed or failed, they are genuinely no longer there, and nothing about
  * their earlier progress should be rewritten. Feedback already submitted at
  * either stage is untouched.
  */
@@ -320,7 +320,7 @@ export async function holdApplication(
       entityId: applicationId,
       applicationId,
       positionId: context.positionId,
-      summary: `${actor.name} put ${context.candidateName} on hold at “${context.currentStage?.name ?? "—"}”`,
+      summary: `${actor.name} put ${context.candidateName} on hold at “${context.currentStage?.name ?? "-"}”`,
       metadata: {
         stageId: context.currentStage?.id ?? null,
         stageName: context.currentStage?.name ?? null,
@@ -385,7 +385,7 @@ export async function resumeApplication(
       entityId: applicationId,
       applicationId,
       positionId: context.positionId,
-      summary: `${actor.name} resumed ${context.candidateName} at “${context.currentStage?.name ?? "—"}”`,
+      summary: `${actor.name} resumed ${context.candidateName} at “${context.currentStage?.name ?? "-"}”`,
       metadata: {
         stageId: context.currentStage?.id ?? null,
         stageName: context.currentStage?.name ?? null,
@@ -425,7 +425,7 @@ export async function rejectApplication(
  * Returns how the position now stands against its approved headcount so the
  * caller can prompt HR to close it out. Exceeding the opening count is warned
  * about rather than blocked: headcount changes, and refusing to record a hire
- * that actually happened would put the system out of step with reality — the
+ * that actually happened would put the system out of step with reality, the
  * same reasoning as the under-hire warning when closing a position.
  */
 export async function hireApplication(

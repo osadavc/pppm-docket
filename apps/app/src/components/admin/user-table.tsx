@@ -68,10 +68,10 @@ export function UserTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {u.jobTitle || "—"}
+                  {u.jobTitle || "-"}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {u.department || "—"}
+                  {u.department || "-"}
                 </TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(u.createdAt)}</TableCell>
                 <TableCell className="text-right">

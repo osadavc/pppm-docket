@@ -71,7 +71,7 @@ export default async function PipelinePage({
           <h1 className="text-2xl font-semibold tracking-tight">Pipeline</h1>
           <p className="text-muted-foreground text-sm">
             {board.total} active candidate{board.total === 1 ? "" : "s"}. Time shown
-            is how long since each one last moved — green under{" "}
+            is how long since each one last moved: green under{" "}
             {PACE_THRESHOLDS.amberFrom} days, amber {PACE_THRESHOLDS.amberFrom} to{" "}
             {PACE_THRESHOLDS.redFrom - 1}, red beyond.
           </p>

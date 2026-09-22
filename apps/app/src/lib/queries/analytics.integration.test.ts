@@ -66,7 +66,7 @@ test("analytics aggregates: KPIs, funnels, drop-outs, time to fill", { timeout: 
       .returning({ id: candidates.id });
     candidateIds.push(...people.map((p) => p.id));
 
-    // Open position: 4 applications — 2 active at Interview (entered both
+    // Open position: 4 applications, 2 active at Interview (entered both
     // stages), 1 hired (decision 10 days after applying), 1 rejected at Screen.
     // Filled position: 1 hired (decision 4 days after applying).
     const apps = await db

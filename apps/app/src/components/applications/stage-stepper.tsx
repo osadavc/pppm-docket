@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * "{n} {stage}" for every stage on the candidate's path: passed, current
- * (highlighted), upcoming, and — muted — archived stages they went through
+ * (highlighted), upcoming, and, muted, archived stages they went through
  * before the pipeline changed under them.
  */
 export function StageStepper({ stages }: { stages: StepperStage[] }) {

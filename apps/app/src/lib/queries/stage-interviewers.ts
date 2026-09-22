@@ -240,7 +240,7 @@ export type StageOccupancy = {
   stageId: string;
   /** Active candidates sitting on this stage right now. */
   activeCandidates: number;
-  /** Scorecards ever submitted at this stage — what archiving must preserve. */
+  /** Scorecards ever submitted at this stage, what archiving must preserve. */
   submittedScorecards: number;
 };
 

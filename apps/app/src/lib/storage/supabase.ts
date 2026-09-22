@@ -5,7 +5,7 @@ import { env } from "@/env";
 import { createLocalStorageClient } from "./local";
 
 /**
- * Service-role Storage client. SERVER ONLY — this key bypasses every policy,
+ * Service-role Storage client. SERVER ONLY, this key bypasses every policy,
  * so it must never reach a client bundle. The "server-only" import above is
  * what makes that a build error rather than a discovery in production.
  */
@@ -36,7 +36,7 @@ export function assertStorageConfigured() {
     env.SUPABASE_SERVICE_ROLE_KEY.includes("<") ||
     env.SUPABASE_SERVICE_ROLE_KEY.length < 20
   ) {
-    return "File storage is not configured. Set SUPABASE_SERVICE_ROLE_KEY in apps/app/.env.local (the file Next.js reads — a repo-root .env is ignored).";
+    return "File storage is not configured. Set SUPABASE_SERVICE_ROLE_KEY in apps/app/.env.local (the file Next.js reads, a repo-root .env is ignored).";
   }
   return null;
 }

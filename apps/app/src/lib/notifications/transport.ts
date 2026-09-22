@@ -43,7 +43,7 @@ export type ProviderOutcome =
 export type DeliveryMode = {
   enabled: boolean;
   apiKeyConfigured: boolean;
-  /** DEMO_EMAIL_REDIRECT — every recipient is rewritten to this inbox. */
+  /** DEMO_EMAIL_REDIRECT, every recipient is rewritten to this inbox. */
   redirectTo: string;
 };
 

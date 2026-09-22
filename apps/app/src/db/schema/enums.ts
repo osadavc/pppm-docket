@@ -19,13 +19,13 @@ export const employmentType = pgEnum("employment_type", [
 export const positionStatus = pgEnum("position_status", [
   "draft",
   // Awaiting management sign-off. A position cannot reach "open" without
-  // passing through here — see lib/domain/position-status.ts.
+  // passing through here, see lib/domain/position-status.ts.
   "pending_approval",
   "open",
   "on_hold",
   "closed",
   "filled",
-  // Abandoned before hiring anyone — distinct from "closed", which ended
+  // Abandoned before hiring anyone, distinct from "closed", which ended
   // normally. Keeping them apart is what stops cancelled roles polluting
   // time-to-fill.
   "cancelled",
@@ -108,7 +108,7 @@ export const participantResponse = pgEnum("participant_response", [
 
 export const scorecardStatus = pgEnum("scorecard_status", ["draft", "submitted"]);
 
-/** Four points, no middle option — "maybe" is what spreadsheets already produce. */
+/** Four points, no middle option, "maybe" is what spreadsheets already produce. */
 export const recommendation = pgEnum("recommendation", [
   "strong_no",
   "no",

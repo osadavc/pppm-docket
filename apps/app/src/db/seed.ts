@@ -1,8 +1,8 @@
 /**
- * Demo data seeder — a believable hiring scenario for reviews, screenshots
+ * Demo data seeder, a believable hiring scenario for reviews, screenshots
  * and tests.
  *
- *   bun run db:seed            idempotent — skips what already exists
+ *   bun run db:seed            idempotent, skips what already exists
  *   bun run db:seed --reset    truncates every table first
  *
  * Staff accounts go through better-auth's internal adapter (the public
@@ -139,7 +139,7 @@ async function approvalTrail(staff: Staff, position: { id: string; title: string
       await logActivity(tx, {
         actorId: staff.manager.id, action: approved ? "position.approved" : "position.rejected", entityType: "position", entityId: position.id, positionId: position.id,
         summary: approved
-          ? `${staff.manager.name} approved “${position.title}” — it is now open and on the careers board`
+          ? `${staff.manager.name} approved “${position.title}”. It is now open and on the careers board`
           : `${staff.manager.name} rejected “${position.title}” and returned it to draft`,
         metadata: { from: "pending_approval", to: approved ? "open" : "draft", note, submittedById: staff.hr.id },
       });
@@ -152,7 +152,7 @@ let cvStorage: string | null | undefined;
 async function maybeUploadCv(candidate: { id: string; fullName: string; email: string; currentTitle: string | null; currentCompany: string | null }, applicationId: string) {
   if (cvStorage === undefined) {
     cvStorage = assertStorageConfigured();
-    if (cvStorage) console.warn(`  ! ${cvStorage} — skipping CV uploads`);
+    if (cvStorage) console.warn(`  ! ${cvStorage}, skipping CV uploads`);
   }
   if (cvStorage) return;
   const pdf = buildCvPdf({
@@ -160,7 +160,7 @@ async function maybeUploadCv(candidate: { id: string; fullName: string; email: s
     summary: `${candidate.currentTitle ?? "Engineer"} with several years of experience building reliable services and mentoring colleagues.`,
     skills: ["TypeScript", "PostgreSQL", "Distributed systems", "Observability", "Mentoring"],
     history: [
-      `${candidate.currentCompany ?? "Previous employer"} — ${candidate.currentTitle ?? "Engineer"} (3 years)`,
+      `${candidate.currentCompany ?? "Previous employer"}, ${candidate.currentTitle ?? "Engineer"} (3 years)`,
       "Earlier: junior developer, internal tooling and integrations (2 years)",
     ],
   });
@@ -310,7 +310,7 @@ async function submitScorecard(
 
 async function seedScenario(staff: Staff) {
   if (await db.query.positions.findFirst({ where: eq(schema.positions.title, "Senior Backend Engineer") })) {
-    console.log("  = scenario already seeded (Senior Backend Engineer exists) — skipping");
+    console.log("  = scenario already seeded (Senior Backend Engineer exists), skipping");
     return;
   }
   const hrSession = sessionFor(staff.hr, "hr");
@@ -377,7 +377,7 @@ async function seedScenario(staff: Staff) {
 
   // ~8 rejections across reasons, through the real decision service (half emailed → simulated notifications).
   const reasons = ["insufficient_experience", "skills_mismatch", "failed_assessment", "communication_concerns", "salary_expectations", "right_to_work_or_location", "stronger_candidate_selected", "other"] as const;
-  const notes = ["Two years short of the essential experience.", "Strong front-end profile; this is a backend role.", "Did not pass the take-home review.", "Struggled to explain past work concretely.", "Expectation 40% above the band.", "No right to work; visa sponsorship unavailable.", "Excellent, but two stronger finalists.", "Withdrew after the phone screen — logging as a rejection to close the loop."];
+  const notes = ["Two years short of the essential experience.", "Strong front-end profile; this is a backend role.", "Did not pass the take-home review.", "Struggled to explain past work concretely.", "Expectation 40% above the band.", "No right to work; visa sponsorship unavailable.", "Excellent, but two stronger finalists.", "Withdrew after the phone screen, logging as a rejection to close the loop."];
   const toReject = apps.filter((a) => a.placement.stageIndex <= 1).slice(-8);
   for (const [i, a] of toReject.entries()) {
     const template = rejection({ candidateName: a.fullName, positionTitle: open.title, companyName: COMPANY_NAME });

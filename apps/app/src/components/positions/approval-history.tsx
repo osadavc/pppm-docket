@@ -39,7 +39,7 @@ export function ApprovalHistory({ events }: { events: ApprovalEvent[] }) {
                   <Icon className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
                   <div className="min-w-0">
                     <p>
-                      {verb} <span className="font-medium">{event.actorName ?? "—"}</span>
+                      {verb} <span className="font-medium">{event.actorName ?? "-"}</span>
                       <span className="text-muted-foreground"> · {formatDateTime(event.at)}</span>
                     </p>
                     {event.note ? (

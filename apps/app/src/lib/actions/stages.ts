@@ -39,7 +39,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
  * When a stage is added to a position that already has candidates, every
- * existing application needs a row for it — otherwise the new stage is
+ * existing application needs a row for it, otherwise the new stage is
  * invisible to people already in the pipeline and they could never be moved
  * into it.
  */
@@ -56,8 +56,8 @@ async function backfillApplicationStages(
 
   if (existing.length === 0) return 0;
 
-  // An archived stage keeps its application_stages rows — that is what
-  // preserves the history — so restoring it must only fill the genuine gaps.
+  // An archived stage keeps its application_stages rows, that is what
+  // preserves the history, so restoring it must only fill the genuine gaps.
   const alreadyHave = await tx
     .select({ applicationId: applicationStages.applicationId })
     .from(applicationStages)
@@ -234,7 +234,7 @@ export async function reorderStages(
   const currentIds = current.map((s) => s.id);
   const submitted = parsed.data.orderedStageIds;
 
-  // The submitted list must be a permutation of this position's stages —
+  // The submitted list must be a permutation of this position's stages -
   // otherwise a crafted request could reorder or orphan another position's.
   const sameSet =
     submitted.length === currentIds.length &&
@@ -352,7 +352,7 @@ export async function setStageInterviewers(
  * where they are. The stage simply leaves the active pipeline.
  *
  * If the stage is currently holding active candidates, a destination must be
- * named — leaving people parked on a retired stage is precisely the silent
+ * named, leaving people parked on a retired stage is precisely the silent
  * data loss this is meant to avoid. Every forced move is written to that
  * candidate's history individually.
  */
@@ -446,7 +446,7 @@ export async function archiveStage(
         destinationRowId = inserted!.id;
       }
 
-      // The stage they are leaving is marked skipped, not deleted — the row and
+      // The stage they are leaving is marked skipped, not deleted, the row and
       // any feedback on it remain part of their history.
       await tx
         .update(applicationStages)
@@ -712,7 +712,7 @@ export async function reorderCriteria(
     .where(and(eq(scorecardCriteria.positionStageId, stageId), eq(scorecardCriteria.isActive, true)));
   const ids = new Set(current.map((c) => c.id));
   if (orderedCriterionIds.length !== ids.size || !orderedCriterionIds.every((id) => ids.has(id))) {
-    return fail("The list is out of date — reload and try again.");
+    return fail("The list is out of date. Reload and try again.");
   }
 
   await db.transaction(async (tx) => {
@@ -734,7 +734,7 @@ export async function reorderCriteria(
 
 /**
  * Deactivate (or bring back) a criterion. Historic ratings stay exactly as
- * they were — the database refuses to delete a rated criterion — and the
+ * they were, the database refuses to delete a rated criterion, and the
  * scorecard form simply stops asking for it.
  */
 export async function setCriterionActive(

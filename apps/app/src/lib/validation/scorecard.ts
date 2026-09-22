@@ -15,7 +15,7 @@ export const RECOMMENDATION_LABELS = {
 } as const;
 
 export const NARRATIVE_REQUIRED_MESSAGE =
-  "Write at least a couple of sentences — this drives the decision.";
+  "Write at least a couple of sentences. This drives the decision.";
 
 export const scorecardSubmissionSchema = z
   .object({

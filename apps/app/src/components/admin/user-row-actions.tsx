@@ -150,7 +150,7 @@ export function UserRowActions({
             <DialogTitle>Change role</DialogTitle>
             <DialogDescription>
               {user.name} ({user.email}). The change applies on their next
-              request — they stay signed in.
+              request. They stay signed in.
             </DialogDescription>
           </DialogHeader>
 

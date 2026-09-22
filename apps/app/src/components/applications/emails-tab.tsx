@@ -54,7 +54,7 @@ function RetryButton({ email }: { email: ApplicationEmail }) {
     }
     if (result.data.status === "sent") toast.success("Email sent.");
     else if (result.data.status === "simulated") {
-      toast.success("Email recorded as simulated — delivery is off.");
+      toast.success("Email recorded as simulated. Delivery is off.");
     } else if (result.data.status === "unknown") {
       toast.warning("The provider did not answer. Retry again to reconcile.");
     } else toast.error(`Email failed again${result.data.error ? `: ${result.data.error}` : "."}`);
@@ -165,7 +165,7 @@ export function EmailsTab({
         {emails.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             No emails have been sent from this application yet. This log records
-            messages sent from here — advancing or rejecting a candidate with
+            messages sent from here. Advancing or rejecting a candidate with
             “Email the candidate” turned on, and ad-hoc messages composed above.
           </p>
         ) : (

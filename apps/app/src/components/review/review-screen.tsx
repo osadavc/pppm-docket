@@ -44,7 +44,7 @@ function CvPane({ card }: { card: ReviewCard }) {
     return (
       <iframe
         key={card.cv.attachmentId}
-        title={`CV — ${card.candidateName}`}
+        title={`CV: ${card.candidateName}`}
         src={inlineHref}
         className="bg-background h-[75vh] min-h-96 w-full rounded-lg border"
       />
@@ -68,7 +68,7 @@ function CvPane({ card }: { card: ReviewCard }) {
  * Screen the first stage one candidate at a time: CV on the left, decision on
  * the right. The loaded cards are a bounded page; `total` is the true count,
  * so the counter stays honest however many were loaded. Decisions go through
- * the same dialogs and server actions as everywhere else — the keyboard only
+ * the same dialogs and server actions as everywhere else, the keyboard only
  * opens them, it never bypasses the gate or the reason.
  */
 export function ReviewScreen({
@@ -135,7 +135,7 @@ export function ReviewScreen({
     return (
       <Card className="p-10 text-center">
         <p className="font-medium">
-          Queue clear — every application at {queue.stage.name} has been reviewed.
+          Queue clear. Every application at {queue.stage.name} has been reviewed.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           {reviewed} reviewed this session
@@ -186,7 +186,7 @@ export function ReviewScreen({
               <dt className="text-muted-foreground">Email</dt>
               <dd className="break-all">{card.candidateEmail}</dd>
               <dt className="text-muted-foreground">Phone</dt>
-              <dd>{card.candidatePhone || "—"}</dd>
+              <dd>{card.candidatePhone || "-"}</dd>
               <dt className="text-muted-foreground">Applied</dt>
               <dd>{formatDate(card.appliedAt)}</dd>
               {card.salaryExpectation ? (

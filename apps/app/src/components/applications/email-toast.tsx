@@ -3,7 +3,7 @@ import type { DecisionEmail } from "@/lib/services/application-decisions";
 
 /**
  * One toast per decision, phrased as what happened. The decision itself is
- * always reported as done — a failed email never undoes it — and the email
+ * always reported as done, a failed email never undoes it, and the email
  * outcome is appended as a second sentence.
  */
 export function candidateEmailToast(outcome: string, email: DecisionEmail) {
@@ -22,7 +22,7 @@ export function candidateEmailToast(outcome: string, email: DecisionEmail) {
       return;
     case "unknown":
       toast.warning(
-        `${outcome} The email provider did not answer — check the Emails panel before retrying.`,
+        `${outcome} The email provider did not answer. Check the Emails panel before retrying.`,
       );
       return;
     case "failed":

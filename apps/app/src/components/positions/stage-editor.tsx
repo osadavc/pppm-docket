@@ -160,7 +160,7 @@ export function StageEditor({
                     </span>
                   ) : (
                     <span className="text-muted-foreground text-sm italic">
-                      No interviewers assigned — this stage will not hold
+                      No interviewers assigned. This stage will not hold
                       candidates up
                     </span>
                   )}

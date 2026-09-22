@@ -8,7 +8,7 @@ import type { PositionStatus } from "@/db/schema/enums";
 
 /**
  * The status a candidate is allowed to see. Kept in lib/domain/position-status
- * so the careers queries and the "accepts applications" rule cannot drift — a
+ * so the careers queries and the "accepts applications" rule cannot drift, a
  * role must never be advertised somewhere it cannot be applied to.
  */
 const PUBLIC_STATUS = "open" as const satisfies PositionStatus;
@@ -91,7 +91,7 @@ export type PositionListPage = {
 };
 
 /**
- * Internal listing — staff only, includes drafts. Filtered, searched and
+ * Internal listing, staff only, includes drafts. Filtered, searched and
  * paged in SQL; the total is a window count over the filtered set so a page
  * and its count arrive together.
  */
@@ -120,7 +120,7 @@ export async function listPositions(
       // The outer reference is written literally rather than interpolated.
       // Drizzle renders an interpolated column inside a sql template as a bare
       // "id", which resolves against the SUBQUERY's table rather than this one
-      // — so the predicate silently compares a table to itself and counts zero.
+      //, so the predicate silently compares a table to itself and counts zero.
       // Live stages only: an archived stage is off the process.
       stageCount: sql<number>`(
         select count(*)::int from position_stages ps
@@ -179,7 +179,7 @@ export async function getPosition(positionId: string) {
   });
 }
 
-/** True once anyone has applied — used to protect stages from destructive edits. */
+/** True once anyone has applied, used to protect stages from destructive edits. */
 export async function positionHasApplications(positionId: string) {
   const [row] = await db
     .select({ n: count() })

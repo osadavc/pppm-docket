@@ -13,7 +13,7 @@ export type Kpis = {
   averageTimeToHireDays: number | null;
 };
 
-/** Four headline numbers in two statements — no rows are loaded to be counted. */
+/** Four headline numbers in two statements, no rows are loaded to be counted. */
 export async function getKpis(): Promise<Kpis> {
   const [[positionRow], [applicationRow]] = await Promise.all([
     db

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Markdown } from "@/components/app/markdown";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -80,11 +81,11 @@ export default async function PositionPage({
   const salary =
     position.salaryMin || position.salaryMax
       ? `${position.salaryMin?.toLocaleString() ?? "…"} – ${position.salaryMax?.toLocaleString() ?? "…"}`
-      : "—";
+      : "-";
 
   const facts: Array<[string, string]> = [
     ["Department", position.department],
-    ["Location", position.location || "—"],
+    ["Location", position.location || "-"],
     ["Employment type", EMPLOYMENT_TYPE_LABELS[position.employmentType]],
     ["Openings", String(position.openings)],
     ["Hired", `${fill.hired} of ${fill.openings}`],
@@ -108,7 +109,7 @@ export default async function PositionPage({
             <PositionStatusBadge status={position.status} />
           </div>
           <p className="text-muted-foreground text-sm">
-            Created by {position.createdBy?.name ?? "—"} on{" "}
+            Created by {position.createdBy?.name ?? "-"} on{" "}
             {formatDate(position.createdAt)}
           </p>
         </div>
@@ -195,7 +196,7 @@ export default async function PositionPage({
           <Clock />
           <AlertTitle>Awaiting management approval</AlertTitle>
           <AlertDescription>
-            Submitted by {position.submittedBy?.name ?? "—"} on{" "}
+            Submitted by {position.submittedBy?.name ?? "-"} on{" "}
             {formatDate(position.submittedAt)}. It cannot be advertised until
             management signs it off.
           </AlertDescription>
@@ -221,7 +222,7 @@ export default async function PositionPage({
             </CardHeader>
             <CardContent>
               {position.description ? (
-                <p className="text-sm whitespace-pre-wrap">{position.description}</p>
+                <Markdown>{position.description}</Markdown>
               ) : (
                 <p className="text-muted-foreground text-sm">
                   No description yet. Add one before advertising this role.
@@ -236,7 +237,7 @@ export default async function PositionPage({
                 <CardTitle>Requirements</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{position.requirements}</p>
+                <Markdown>{position.requirements}</Markdown>
               </CardContent>
             </Card>
           ) : null}
@@ -274,7 +275,7 @@ export default async function PositionPage({
                 <div>
                   <CardTitle>Interview stages</CardTitle>
                   <CardDescription>
-                    This sequence belongs to this position alone — changing it
+                    This sequence belongs to this position alone. Changing it
                     affects no other role.
                   </CardDescription>
                 </div>

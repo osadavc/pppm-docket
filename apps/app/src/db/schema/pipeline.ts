@@ -29,7 +29,7 @@ export const positionStages = pgTable(
     description: text("description"),
     orderIndex: integer("order_index").notNull(),
     kind: stageKind("kind").default("interview").notNull(),
-    /** Part of the advancement gate — see lib/domain/advancement.ts. */
+    /** Part of the advancement gate, see lib/domain/advancement.ts. */
     requiresScorecard: boolean("requires_scorecard").default(true).notNull(),
     minScorecards: integer("min_scorecards").default(1).notNull(),
     /** Target days-in-stage, compared against actuals in the time-in-stage report. */

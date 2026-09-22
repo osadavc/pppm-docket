@@ -13,12 +13,12 @@ const postgresUrl = (name: string) =>
       message: `${name} must start with postgresql://`,
     })
     .refine((v) => !v.includes("<"), {
-      message: `${name} still contains a <placeholder> — copy the real string from Supabase -> Connect`,
+      message: `${name} still contains a <placeholder>. Copy the real string from Supabase -> Connect`,
     })
     .refine((v) => URL.canParse(v), { message: `${name} is not a valid URL` });
 
 const schema = z.object({
-  // Database — DATABASE_URL is the transaction pooler (6543, prepare:false);
+  // Database, DATABASE_URL is the transaction pooler (6543, prepare:false);
   // DIRECT_URL is the session pooler (5432) used for DDL, migrations and studio.
   DATABASE_URL: postgresUrl("DATABASE_URL"),
   DIRECT_URL: postgresUrl("DIRECT_URL"),
@@ -36,7 +36,7 @@ const schema = z.object({
   BETTER_AUTH_URL: z.url(),
   NEXT_PUBLIC_APP_URL: z.url(),
 
-  // Email — optional until Resend is set up; NOTIFICATIONS_ENABLED gates sending.
+  // Email, optional until Resend is set up; NOTIFICATIONS_ENABLED gates sending.
   RESEND_API_KEY: z.string().optional().default(""),
   /** Bare address; the display name is built from NEXT_PUBLIC_COMPANY_NAME. */
   EMAIL_FROM: z.string().default("onboarding@resend.dev"),
@@ -79,7 +79,7 @@ if (!parsed.success) {
     .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
     .join("\n");
   throw new Error(
-    `Invalid environment configuration. Check apps/app/.env.local — the file Next.js reads; a repo-root .env is ignored:\n${issues}`,
+    `Invalid environment configuration. Check apps/app/.env.local, the file Next.js reads; a repo-root .env is ignored:\n${issues}`,
   );
 }
 

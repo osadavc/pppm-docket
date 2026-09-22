@@ -4,7 +4,7 @@
  * Pure and dependency-free so it can be reasoned about and tested directly, and
  * so the same rule drives both the UI (why the advance button is disabled) and
  * the server action that will actually move a candidate. The action must
- * re-evaluate this against live rows — a disabled button is not a guard.
+ * re-evaluate this against live rows, a disabled button is not a guard.
  */
 export type StageGateInput = {
   /** Position-level master switch. */
@@ -52,7 +52,7 @@ export function evaluateStageGate(input: StageGateInput): StageGate {
   if (!requiresScorecard) return clear("stage_needs_no_feedback");
 
   // Nobody is accountable for assessing this stage, so there is no feedback to
-  // wait for. Blocking here would strand candidates behind an empty panel —
+  // wait for. Blocking here would strand candidates behind an empty panel -
   // the gate exists to enforce accountability, not to punish its absence.
   if (assignedInterviewerCount === 0) return clear("no_interviewers_assigned");
 

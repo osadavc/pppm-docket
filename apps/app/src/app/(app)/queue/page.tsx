@@ -266,7 +266,7 @@ export default async function QueuePage({
             emptyCopy="No awaiting candidates appear on this page."
           />
           <QueueSection
-            title="Submitted — in your stage"
+            title="Submitted in your stage"
             description="You have submitted feedback, and the candidate remains at this assigned stage."
             total={queue.summary.submitted}
             candidates={queue.submitted}

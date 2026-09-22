@@ -63,7 +63,7 @@ export default async function ReportsPage() {
         <Tile label="Hired" value={String(kpis.hired)} />
         <Tile
           label="Average time to hire"
-          value={kpis.averageTimeToHireDays === null ? "—" : `${kpis.averageTimeToHireDays.toFixed(1)} d`}
+          value={kpis.averageTimeToHireDays === null ? "-" : `${kpis.averageTimeToHireDays.toFixed(1)} d`}
           hint="Decision date minus applied date, over hired candidates."
         />
       </div>

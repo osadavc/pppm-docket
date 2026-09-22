@@ -17,7 +17,7 @@ export type RateLimitResult = {
  * Fixed-window limiter backed by one Postgres row per key.
  *
  * A single upsert either bumps the counter or, if the window has lapsed,
- * starts a new one — atomic under concurrent requests and identical for every
+ * starts a new one, atomic under concurrent requests and identical for every
  * instance behind a load balancer, which is the property a per-process map
  * cannot offer. Read the returned `allowed` before doing any work.
  */

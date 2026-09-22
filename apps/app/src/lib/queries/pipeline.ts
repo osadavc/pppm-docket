@@ -25,7 +25,7 @@ export type BoardCandidate = {
   fullName: string;
   currentTitle: string | null;
   appliedAt: Date;
-  /** When they entered THIS stage — the basis for time-in-stage. */
+  /** When they entered THIS stage, the basis for time-in-stage. */
   enteredAt: Date | null;
   pace: Pace;
 };
@@ -57,8 +57,8 @@ export function stalledBefore(now: Date) {
 /**
  * The pipeline board, bounded.
  *
- * Cards are windowed in SQL — `row_number() over (partition by stage order by
- * entered_at)` — so a position with 1,000 applicants sends at most
+ * Cards are windowed in SQL, `row_number() over (partition by stage order by
+ * entered_at)`, so a position with 1,000 applicants sends at most
  * 8 × stages rows over the wire. Every number on the page comes from a
  * grouped `count(*)` that never looks at the loaded cards, so the totals are
  * exact whatever the window holds. Archived stages get no column and no

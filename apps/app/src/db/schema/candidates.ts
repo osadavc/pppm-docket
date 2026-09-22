@@ -7,7 +7,7 @@ import { createdAt, updatedAt } from "./_shared";
  * A global person record, not a per-position row. The same person genuinely
  * applies to two roles, or gets rejected for one and revived for another six
  * months later. Everything position-specific lives on `applications`.
- * Candidates never log in — they are data, not users.
+ * Candidates never log in, they are data, not users.
  */
 export const candidates = pgTable(
   "candidates",

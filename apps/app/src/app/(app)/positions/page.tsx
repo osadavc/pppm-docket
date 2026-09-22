@@ -74,8 +74,8 @@ export default async function PositionsPage({
       {result.rows.length === 0 ? (
         <Card className="text-muted-foreground p-10 text-center text-sm">
           {filtered
-            ? "No positions match — try clearing the search or status filter."
-            : `Open your first position${canManage ? " — create a draft to get started." : "."}`}
+            ? "No positions match. Try clearing the search or status filter."
+            : `Open your first position${canManage ? ". Create a draft to get started." : "."}`}
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">

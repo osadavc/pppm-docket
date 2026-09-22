@@ -7,7 +7,7 @@ import * as schema from "./schema";
 
 /**
  * The Supabase transaction pooler (port 6543) does not support prepared
- * statements — omitting `prepare: false` produces intermittent
+ * statements, omitting `prepare: false` produces intermittent
  * `prepared statement "s1" already exists` errors under concurrency.
  *
  * The client is cached on globalThis so Next's dev HMR does not leak a new

@@ -14,10 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import type { StageFormInput } from "@/lib/validation/stage";
 
 const KIND_LABELS = {
-  screening: "Screening — a paper sift, no interview scheduled",
-  interview: "Interview — a scheduled conversation",
-  assessment: "Assessment — a take-home or practical task",
-  offer: "Offer — approval and offer issued",
+  screening: "Screening: a paper sift, no interview scheduled",
+  interview: "Interview: a scheduled conversation",
+  assessment: "Assessment: a take-home or practical task",
+  offer: "Offer: approval and offer issued",
 } as const;
 
 export function StageFormFields({

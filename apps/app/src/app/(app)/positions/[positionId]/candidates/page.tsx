@@ -154,14 +154,14 @@ export default async function PositionCandidatesPage({
                           {r.stageName}
                         </Badge>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </TableCell>
                     <TableCell>
                       {r.status === "active" && r.enteredAt ? (
                         <PaceBadge pace={paceFor(r.enteredAt)} />
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -173,7 +173,7 @@ export default async function PositionCandidatesPage({
                     <TableCell className="text-muted-foreground">
                       {r.status
                         ? APPLICATION_STATUS_LABELS[r.status as keyof typeof APPLICATION_STATUS_LABELS]
-                        : "—"}
+                        : "-"}
                     </TableCell>
                   </TableRow>
                 ))}

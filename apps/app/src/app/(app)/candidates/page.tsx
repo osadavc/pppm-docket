@@ -117,7 +117,7 @@ export default async function CandidatesPage({
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {r.positionTitle ?? "—"}
+                      {r.positionTitle ?? "-"}
                     </TableCell>
                     <TableCell>
                       {r.stageName ? (
@@ -125,7 +125,7 @@ export default async function CandidatesPage({
                           {r.stageName}
                         </Badge>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground capitalize">
@@ -133,7 +133,7 @@ export default async function CandidatesPage({
                         ? APPLICATION_STATUS_LABELS[
                             r.status as keyof typeof APPLICATION_STATUS_LABELS
                           ]
-                        : "—"}
+                        : "-"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {CANDIDATE_SOURCE_LABELS[
@@ -152,7 +152,7 @@ export default async function CandidatesPage({
                           Download
                         </a>
                       ) : (
-                        <span className="text-muted-foreground text-sm">—</span>
+                        <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
                   </TableRow>

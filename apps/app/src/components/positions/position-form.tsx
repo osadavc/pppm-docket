@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/app/markdown-editor";
 import { createDraftPosition, updatePosition } from "@/lib/actions/positions";
 import { EMPLOYMENT_TYPE_LABELS } from "@/lib/format";
 import {
@@ -92,7 +92,7 @@ export function PositionForm({
         <CardHeader>
           <CardTitle>The role</CardTitle>
           <CardDescription>
-            Only a title and department are needed to save a draft — fill in the
+            Only a title and department are needed to save a draft, fill in the
             rest whenever you are ready.
           </CardDescription>
         </CardHeader>
@@ -177,12 +177,23 @@ export function PositionForm({
         <CardContent className="space-y-4">
           <Field>
             <FieldLabel htmlFor="description">Job description</FieldLabel>
-            <Textarea id="description" rows={8} {...form.register("description")} />
-            <FieldDescription>Markdown is preserved.</FieldDescription>
+            <Controller
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <MarkdownEditor id="description" minRows={8} value={field.value ?? ""} onChange={field.onChange} onBlur={field.onBlur} placeholder="What the role is, who it works with, what success looks like." />
+              )}
+            />
           </Field>
           <Field>
             <FieldLabel htmlFor="requirements">Requirements</FieldLabel>
-            <Textarea id="requirements" rows={5} {...form.register("requirements")} />
+            <Controller
+              control={form.control}
+              name="requirements"
+              render={({ field }) => (
+                <MarkdownEditor id="requirements" minRows={5} value={field.value ?? ""} onChange={field.onChange} onBlur={field.onBlur} />
+              )}
+            />
           </Field>
         </CardContent>
       </Card>

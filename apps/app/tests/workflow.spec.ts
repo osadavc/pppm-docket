@@ -108,7 +108,7 @@ test("public careers: filtering, deadline copy, apply with CV, acknowledgement, 
   await page.getByLabel("CV").setInputFiles(pdfFile("public-cv.pdf"));
   await page.getByRole("button", { name: "Submit application" }).click();
   await expect(page).toHaveURL(new RegExp(`/careers/${openPositionId}/applied`));
-  await expect(page.getByRole("heading", { name: /Thanks — you.re in the running for Senior Backend Engineer/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Thanks, you.re in the running for Senior Backend Engineer/ })).toBeVisible();
 
   const [candidate] = await db.select({ id: candidates.id, createdById: candidates.createdById }).from(candidates).where(eq(candidates.email, email));
   assert.equal(candidate.createdById, null);
@@ -179,7 +179,7 @@ test("seeded workspaces: bounded board, review with CV preview, position list, d
   await expect(page.getByRole("heading", { name: /Review at Application Review/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Advance", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reject", exact: true })).toBeVisible();
-  const frame = page.locator("iframe[title^='CV — ']");
+  const frame = page.locator("iframe[title^='CV: ']");
   const noCv = page.getByText("No CV attached");
   await expect(frame.or(noCv).first()).toBeVisible();
   await page.keyboard.press("j");

@@ -41,7 +41,7 @@ test("public sign-up is closed: API refuses, route is gone, copy says so", async
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
   await page.goto("/sign-in");
-  await expect(page.getByText("Accounts are created by your hiring manager — there is no public sign-up.")).toBeVisible();
+  await expect(page.getByText("Accounts are created by your hiring manager. There is no public sign-up.")).toBeVisible();
   await expect(page.getByRole("link", { name: /create one/i })).toHaveCount(0);
 });
 

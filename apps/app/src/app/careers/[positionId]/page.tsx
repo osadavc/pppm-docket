@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Markdown } from "@/components/app/markdown";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin } from "lucide-react";
@@ -58,9 +59,7 @@ export default async function CareersRolePage({
           <CardTitle>About the role</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm whitespace-pre-wrap">
-            {role.description || "Details to follow."}
-          </p>
+          <Markdown>{role.description || "Details to follow."}</Markdown>
         </CardContent>
       </Card>
 
@@ -70,7 +69,7 @@ export default async function CareersRolePage({
             <CardTitle>What we are looking for</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm whitespace-pre-wrap">{role.requirements}</p>
+            <Markdown>{role.requirements}</Markdown>
           </CardContent>
         </Card>
       ) : null}

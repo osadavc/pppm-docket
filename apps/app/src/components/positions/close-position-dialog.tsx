@@ -112,7 +112,7 @@ export function ClosePositionDialog({
                 </AlertTitle>
                 <AlertDescription>
                   {summary.shortfall} opening{summary.shortfall === 1 ? "" : "s"} will go
-                  unfilled. You can still mark it filled — the shortfall is recorded.
+                  unfilled. You can still mark it filled and the shortfall is recorded.
                 </AlertDescription>
               </Alert>
             ) : null}

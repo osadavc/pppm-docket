@@ -115,7 +115,7 @@ export function RejectDialog({
           <DialogHeader>
             <DialogTitle>Reject {context.candidateName}</DialogTitle>
             <DialogDescription>
-              A reason is required — it is what makes drop-out reporting mean
+              A reason is required. It is what makes drop-out reporting mean
               anything.
             </DialogDescription>
           </DialogHeader>
@@ -162,7 +162,7 @@ export function RejectDialog({
               <FieldDescription>
                 Never sent to the candidate.{" "}
                 {needsNote
-                  ? "“Other” tells reporting nothing on its own — say what happened."
+                  ? "“Other” tells reporting nothing on its own. Say what happened."
                   : "Kept alongside the reason on the candidate’s record."}
               </FieldDescription>
             </Field>

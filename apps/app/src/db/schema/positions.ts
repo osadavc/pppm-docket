@@ -40,7 +40,7 @@ export const positions = pgTable(
     submittedAt: tstz("submitted_at"),
     /**
      * The last management decision. Kept even after a rejection sends the
-     * position back to draft — otherwise a rejected role is indistinguishable
+     * position back to draft, otherwise a rejected role is indistinguishable
      * from one that was never submitted, and HR never sees why it came back.
      */
     lastReviewDecision: reviewDecision("last_review_decision"),

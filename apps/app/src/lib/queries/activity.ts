@@ -86,7 +86,7 @@ export type ApplicationHeader = {
  * Whether this person may open an application at all.
  *
  * HR and management see every application. An interviewer sees only active
- * applications currently at a stage assigned to them — checked against the
+ * applications currently at a stage assigned to them, checked against the
  * database, not inferred from how they arrived at the page.
  */
 export async function canViewApplication(
@@ -264,7 +264,7 @@ function feedbackSummary(
 
 /**
  * The line under a log entry that everyone entitled to the entry may read.
- * The override reason is deliberately *not* here — it is surfaced through
+ * The override reason is deliberately *not* here, it is surfaced through
  * `meta`, which is only populated for HR and management.
  */
 function activityDetail(action: string, metadata: unknown): string | null {
@@ -322,7 +322,7 @@ function privilegedMeta(metadata: unknown): Record<string, unknown> | null {
  * Visibility is applied at the server data boundary rather than by hiding rows
  * in the UI. For an interviewer that means three separate rules:
  *
- *  - stage transitions are shown — they need the context of where the
+ *  - stage transitions are shown, they need the context of where the
  *    candidate has been;
  *  - a peer's scorecard stays hidden until the viewer has submitted their own
  *    for that same stage, so nobody can anchor their assessment on someone
@@ -523,7 +523,7 @@ export async function getApplicationTimeline(
         return `Sent to ${e.deliveryEmail ?? e.recipientEmail}${e.deliveryEmail && e.deliveryEmail !== e.recipientEmail ? ` (redirected; intended for ${e.recipientEmail})` : ""}`;
       }
       if (e.status === "simulated") {
-        return `Simulated — recorded, not sent · intended for ${e.recipientEmail}`;
+        return `Simulated: recorded, not sent · intended for ${e.recipientEmail}`;
       }
       if (e.status === "failed") {
         const attempts = `${e.attemptCount} attempt${e.attemptCount === 1 ? "" : "s"}`;
