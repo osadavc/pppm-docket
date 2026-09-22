@@ -29,6 +29,8 @@ import {
   parsePositionCandidateFilter,
   toCandidateSearch,
 } from "@/lib/validation/position-candidates";
+import { parseUuidParam } from "@/lib/validation/params";
+import { ScrollX } from "@/components/ui/scroll-x";
 
 export const metadata: Metadata = { title: "Candidates · Docket" };
 
@@ -48,7 +50,7 @@ export default async function PositionCandidatesPage({
   searchParams,
 }: PageProps<"/positions/[positionId]/candidates">) {
   const user = await requirePermission("position:view");
-  const { positionId } = await params;
+  const positionId = parseUuidParam((await params).positionId);
   const [position, stages] = await Promise.all([
     getPositionTitle(positionId),
     listStagesForFilter(positionId),
@@ -124,7 +126,7 @@ export default async function PositionCandidatesPage({
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
+          <ScrollX>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -177,7 +179,7 @@ export default async function PositionCandidatesPage({
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </ScrollX>
         </Card>
       )}
 

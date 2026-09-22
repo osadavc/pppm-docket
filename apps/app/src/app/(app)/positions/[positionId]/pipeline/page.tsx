@@ -10,6 +10,7 @@ import { requirePermission } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { getPipelineBoard } from "@/lib/queries/pipeline";
 import { getPositionTitle } from "@/lib/queries/positions";
+import { parseUuidParam } from "@/lib/validation/params";
 
 export const metadata: Metadata = { title: "Pipeline · Docket" };
 
@@ -48,7 +49,7 @@ export default async function PipelinePage({
   params,
 }: PageProps<"/positions/[positionId]/pipeline">) {
   const user = await requirePermission("position:view");
-  const { positionId } = await params;
+  const positionId = parseUuidParam((await params).positionId);
 
   const position = await getPositionTitle(positionId);
   if (!position) notFound();

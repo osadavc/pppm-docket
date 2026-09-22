@@ -21,7 +21,7 @@ const DAY = 86_400_000;
  * holds. Prints timings for the documented environment.
  */
 test("analytics aggregates: KPIs, funnels, drop-outs, time to fill", { timeout: 60_000 }, async () => {
-  const [hr] = await db.select({ id: user.id }).from(user).where(eq(user.email, "hr@docket.test"));
+  const [hr] = await db.select({ id: user.id }).from(user).where(eq(user.email, "hr@example.com"));
   if (!hr) throw new Error("Run `bun run db:seed` first.");
   const marker = crypto.randomUUID();
   const now = new Date();

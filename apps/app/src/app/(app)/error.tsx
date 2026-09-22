@@ -3,6 +3,11 @@
 import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+/**
+ * Generic on purpose: `error.message` can carry a database error or a stack
+ * fragment, and none of that belongs on screen. The digest is what support
+ * needs to find the server-side log line.
+ */
 export default function AppError({
   error,
   reset,
@@ -16,7 +21,14 @@ export default function AppError({
       <div>
         <h1 className="text-xl font-semibold">Something went wrong</h1>
         <p className="text-muted-foreground text-sm">
-          {error.message || "An unexpected error occurred."}
+          The page could not be loaded. Try again, and if it keeps happening
+          tell your administrator.
+          {error.digest ? (
+            <>
+              {" "}
+              <span className="font-mono">Reference: {error.digest}</span>
+            </>
+          ) : null}
         </p>
       </div>
       <Button variant="outline" onClick={reset}>

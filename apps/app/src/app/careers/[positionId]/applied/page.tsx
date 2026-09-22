@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CircleCheck } from "lucide-react";
 import { getPositionTitle } from "@/lib/queries/positions";
+import { parseUuidParam } from "@/lib/validation/params";
 
 export const metadata: Metadata = { title: "Application received · Docket Careers" };
 
@@ -14,7 +15,7 @@ export const metadata: Metadata = { title: "Application received · Docket Caree
 export default async function AppliedPage({
   params,
 }: PageProps<"/careers/[positionId]/applied">) {
-  const { positionId } = await params;
+  const positionId = parseUuidParam((await params).positionId);
   const role = await getPositionTitle(positionId);
   if (!role) notFound();
 

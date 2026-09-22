@@ -22,7 +22,7 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      "bunx next build --webpack && bunx next start --hostname localhost --port 3000",
+      "bunx next build --webpack && AUTH_RATE_LIMIT=off bunx next start --hostname localhost --port 3000",
     url: "http://localhost:3000/sign-in",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

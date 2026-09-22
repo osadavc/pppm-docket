@@ -6,6 +6,7 @@ import { toDateInputValue } from "@/lib/format";
 import { getPosition } from "@/lib/queries/positions";
 import { listHiringManagers } from "@/lib/queries/users";
 import type { PositionDraftInput } from "@/lib/validation/position";
+import { parseUuidParam } from "@/lib/validation/params";
 
 export const metadata: Metadata = { title: "Edit position · Docket" };
 
@@ -13,7 +14,7 @@ export default async function EditPositionPage({
   params,
 }: PageProps<"/positions/[positionId]/edit">) {
   await requirePermission("position:manage");
-  const { positionId } = await params;
+  const positionId = parseUuidParam((await params).positionId);
 
   const position = await getPosition(positionId);
   if (!position) notFound();

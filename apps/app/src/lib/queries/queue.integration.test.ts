@@ -28,18 +28,18 @@ test(
       .from(user)
       .where(
         inArray(user.email, [
-          "hr@docket.test",
-          "eng.lead@docket.test",
-          "dev1@docket.test",
-          "ops.lead@docket.test",
+          "hr@example.com",
+          "eng.lead@example.com",
+          "dev1@example.com",
+          "ops.lead@example.com",
         ]),
       );
     const userId = (email: string) =>
       seededUsers.find((row) => row.email === email)?.id;
-    const hrId = userId("hr@docket.test");
-    const viewerId = userId("eng.lead@docket.test");
-    const panelPeerId = userId("dev1@docket.test");
-    const unassignedId = userId("ops.lead@docket.test");
+    const hrId = userId("hr@example.com");
+    const viewerId = userId("eng.lead@example.com");
+    const panelPeerId = userId("dev1@example.com");
+    const unassignedId = userId("ops.lead@example.com");
 
     if (!hrId || !viewerId || !panelPeerId || !unassignedId) {
       throw new Error(
@@ -313,7 +313,7 @@ test(
       const timeline = await getApplicationTimeline(gateApplication.id, {
         id: viewerId,
         name: "Queue integration viewer",
-        email: "eng.lead@docket.test",
+        email: "eng.lead@example.com",
         role: "interviewer",
         isActive: true,
       });

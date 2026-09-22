@@ -30,7 +30,7 @@ export function assertStorageConfigured() {
     env.SUPABASE_SERVICE_ROLE_KEY.includes("<") ||
     env.SUPABASE_SERVICE_ROLE_KEY.length < 20
   ) {
-    return "File storage is not configured. Set SUPABASE_SERVICE_ROLE_KEY in apps/app/.env.local.";
+    return "File storage is not configured. Set SUPABASE_SERVICE_ROLE_KEY in apps/app/.env.local (the file Next.js reads — a repo-root .env is ignored).";
   }
   return null;
 }

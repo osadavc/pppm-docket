@@ -51,6 +51,7 @@ import { listScorecardsForApplication } from "@/lib/queries/scorecards";
 import { REJECTION_REASON_LABELS } from "@/lib/validation/application";
 import { CANDIDATE_SOURCE_LABELS } from "@/lib/validation/candidate";
 import { APPLICATION_STATUS_LABELS } from "@/lib/validation/candidate-search";
+import { parseUuidParam } from "@/lib/validation/params";
 
 export const metadata: Metadata = { title: "Application · Docket" };
 
@@ -139,7 +140,7 @@ export default async function ApplicationPage({
   searchParams,
 }: PageProps<"/applications/[applicationId]">) {
   const viewer = await requireUser();
-  const { applicationId } = await params;
+  const applicationId = parseUuidParam((await params).applicationId);
   const { tab } = await searchParams;
 
   // Interviewers reach this page only for applications they are responsible

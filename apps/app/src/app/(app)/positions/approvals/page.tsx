@@ -15,6 +15,7 @@ import {
 import { requirePermission } from "@/lib/auth/guards";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { listPendingApprovals } from "@/lib/queries/positions";
+import { ScrollX } from "@/components/ui/scroll-x";
 
 export const metadata: Metadata = { title: "Approvals · Docket" };
 
@@ -42,7 +43,7 @@ export default async function ApprovalsPage() {
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
+          <ScrollX>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -96,7 +97,7 @@ export default async function ApprovalsPage() {
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </ScrollX>
         </Card>
       )}
     </>

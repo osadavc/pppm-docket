@@ -15,6 +15,7 @@ import { requirePermission } from "@/lib/auth/guards";
 import { formatDate } from "@/lib/format";
 import { getCandidate } from "@/lib/queries/candidates";
 import { CANDIDATE_SOURCE_LABELS } from "@/lib/validation/candidate";
+import { parseUuidParam } from "@/lib/validation/params";
 
 export const metadata: Metadata = { title: "Candidate · Docket" };
 
@@ -29,7 +30,7 @@ export default async function CandidatePage({
   searchParams,
 }: PageProps<"/candidates/[candidateId]">) {
   await requirePermission("candidate:view");
-  const { candidateId } = await params;
+  const candidateId = parseUuidParam((await params).candidateId);
   // Where the list was when they clicked through, so Back returns to the same
   // filtered page rather than an unfiltered one.
   const { from } = await searchParams;
