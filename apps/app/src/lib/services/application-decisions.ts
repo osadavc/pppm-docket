@@ -40,7 +40,7 @@ export type DecisionEmail = {
 
 type DecisionOptions = { transport?: EmailTransport };
 
-function toDeliveryStatus(outcome: DispatchOutcome): DecisionEmail {
+export function toDeliveryStatus(outcome: DispatchOutcome): DecisionEmail {
   const status: CandidateEmailDeliveryStatus =
     outcome.status === "skipped" ? "queued" : outcome.status;
   return {

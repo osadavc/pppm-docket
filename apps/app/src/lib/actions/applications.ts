@@ -8,9 +8,11 @@ import { logActivity } from "@/lib/activity/log";
 import { requirePermission } from "@/lib/auth/guards";
 import { getAdvanceContext } from "@/lib/queries/applications";
 import { getFillSummary } from "@/lib/queries/positions";
+import { dispatchNotification, recordNotification } from "@/lib/notifications/send";
 import {
   advanceApplicationAs,
   rejectApplicationAs,
+  toDeliveryStatus,
   type DecisionEmail,
 } from "@/lib/services/application-decisions";
 import {
@@ -436,13 +438,14 @@ export async function hireApplication(
     openings: number;
     openingsFilled: boolean;
     exceedsOpenings: boolean;
+    email: DecisionEmail;
   }>
 > {
   const actor = await requirePermission("application:manage");
 
   const parsed = hireApplicationSchema.safeParse(input);
   if (!parsed.success) return fail("That request is not valid.");
-  const { applicationId, note } = parsed.data;
+  const { applicationId, note, notification } = parsed.data;
 
   const context = await getAdvanceContext(applicationId);
   if (!context) return fail("That application no longer exists.");
@@ -456,7 +459,7 @@ export async function hireApplication(
   const before = await getFillSummary(context.positionId);
   const now = new Date();
 
-  await db.transaction(async (tx) => {
+  const notificationId = await db.transaction(async (tx) => {
     await tx
       .update(applications)
       .set({
@@ -497,14 +500,33 @@ export async function hireApplication(
         hiredCount: hired,
         openings: before.openings,
         exceedsOpenings: hired > before.openings,
+        candidateEmailed: Boolean(notification),
       },
     });
+
+    if (!notification) return null;
+    const queued = await recordNotification(tx, {
+      type: "decision_made",
+      applicationId,
+      candidateId: context.candidateId,
+      recipientEmail: context.candidateEmail,
+      subject: notification.subject,
+      body: notification.body,
+      actorId: actor.id,
+      metadata: { template: "hired" },
+    });
+    return queued.id;
   });
+
+  const email: DecisionEmail = notificationId
+    ? toDeliveryStatus(await dispatchNotification(notificationId))
+    : { notificationId: null, status: "not_requested" };
 
   const hired = before.hired + 1;
 
   revalidatePath("/candidates");
   revalidatePath("/positions");
+  revalidatePath(`/applications/${applicationId}`);
   revalidatePath(`/positions/${context.positionId}`);
   revalidatePath(`/positions/${context.positionId}/pipeline`);
   return ok({
@@ -512,5 +534,6 @@ export async function hireApplication(
     openings: before.openings,
     openingsFilled: hired >= before.openings,
     exceedsOpenings: hired > before.openings,
+    email,
   });
 }

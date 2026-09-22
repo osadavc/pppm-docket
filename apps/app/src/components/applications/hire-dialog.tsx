@@ -4,7 +4,6 @@ import Link from "next/link";
 import { BadgeCheck, PartyPopper, TriangleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +16,11 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { CandidateEmailComposer } from "@/components/applications/candidate-email-composer";
+import { candidateEmailToast } from "@/components/applications/email-toast";
 import { hireApplication } from "@/lib/actions/applications";
+import { COMPANY_NAME } from "@/lib/company";
+import { hired as hiredTemplate } from "@/lib/notifications/templates";
 import type { AdvanceContext } from "@/lib/queries/applications";
 import type { FillSummary } from "@/lib/queries/positions";
 
@@ -41,6 +44,15 @@ export function HireDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const template = hiredTemplate({
+    candidateName: context.candidateName,
+    positionTitle: context.positionTitle,
+    companyName: COMPANY_NAME,
+  });
+  const [notifyCandidate, setNotifyCandidate] = useState(true);
+  const [emailSubject, setEmailSubject] = useState(template.subject);
+  const [emailBody, setEmailBody] = useState(template.body);
+  const emailReady = !notifyCandidate || (emailSubject.trim().length > 0 && emailBody.trim().length > 0);
 
   // Warn before the fact too, not only after: hiring this person would take
   // the position past its approved headcount.
@@ -52,6 +64,7 @@ export function HireDialog({
     const result = await hireApplication({
       applicationId: context.applicationId,
       note: note || undefined,
+      notification: notifyCandidate ? { subject: emailSubject, body: emailBody } : undefined,
     });
     setPending(false);
 
@@ -59,7 +72,7 @@ export function HireDialog({
       setError(result.error);
       return;
     }
-    toast.success(`${context.candidateName} hired`);
+    candidateEmailToast(`${context.candidateName} hired.`, result.data.email);
     setOutcome(result.data);
     router.refresh();
   }
@@ -69,6 +82,9 @@ export function HireDialog({
     setOutcome(null);
     setNote("");
     setError(undefined);
+    setNotifyCandidate(true);
+    setEmailSubject(template.subject);
+    setEmailBody(template.body);
   }
 
   return (
@@ -78,7 +94,7 @@ export function HireDialog({
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           {outcome ? (
             // AC: once hires reach the opening count, prompt to close the
             // position out rather than leaving it advertised.
@@ -163,14 +179,25 @@ export function HireDialog({
                     Optional, kept on the candidate&apos;s permanent record.
                   </FieldDescription>
                 </Field>
+
+                <CandidateEmailComposer
+                  idPrefix="hire-email"
+                  recipientEmail={context.candidateEmail}
+                  enabled={notifyCandidate}
+                  onEnabledChange={setNotifyCandidate}
+                  subject={emailSubject}
+                  onSubjectChange={setEmailSubject}
+                  body={emailBody}
+                  onBodyChange={setEmailBody}
+                />
               </div>
 
               <DialogFooter>
                 <Button variant="outline" onClick={close}>
                   Cancel
                 </Button>
-                <Button onClick={submit} disabled={pending}>
-                  {pending ? "Hiring…" : "Confirm hire"}
+                <Button onClick={submit} disabled={pending || !emailReady}>
+                  {pending ? "Hiring…" : notifyCandidate ? "Confirm hire & send email" : "Confirm hire"}
                 </Button>
               </DialogFooter>
             </>

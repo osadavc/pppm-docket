@@ -12,6 +12,7 @@
  * Stop the database with `docker compose down` (add `-v` to wipe its data).
  */
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
 
@@ -54,6 +55,26 @@ const appPort = Number(process.env.PORT) || (await freePort(3000));
 const appUrl = `http://localhost:${appPort}`;
 const dbUrl = `postgresql://docket:docket@127.0.0.1:${pgPort}/docket`;
 
+// Email is the one hosted service the local stack may use: it only sends when
+// the repo-root .env turns it on and provides a Resend key.
+const EMAIL_KEYS = ["NOTIFICATIONS_ENABLED", "RESEND_API_KEY", "EMAIL_FROM"] as const;
+
+const readEmailSettings = () => {
+  const file = path.join(repo, ".env");
+  if (!existsSync(file)) return {};
+  const settings: Record<string, string> = {};
+  for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+    if (!match || !EMAIL_KEYS.includes(match[1] as (typeof EMAIL_KEYS)[number])) continue;
+    const value = match[2]!.replace(/^(['"])(.*)\1$/, "$2");
+    if (value) settings[match[1]!] = value;
+  }
+  return settings;
+};
+
+const email = { ...readEmailSettings(), ...Object.fromEntries(EMAIL_KEYS.flatMap((k) => (process.env[k] ? [[k, process.env[k]]] : []))) };
+const emailLive = email.NOTIFICATIONS_ENABLED === "true" && Boolean(email.RESEND_API_KEY);
+
 const env: NodeJS.ProcessEnv = {
   ...process.env,
   POSTGRES_PORT: String(pgPort),
@@ -65,14 +86,16 @@ const env: NodeJS.ProcessEnv = {
   BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "local-dev-secret-not-for-production-use",
   BETTER_AUTH_URL: appUrl,
   NEXT_PUBLIC_APP_URL: appUrl,
-  NOTIFICATIONS_ENABLED: "false",
-  RESEND_API_KEY: "",
+  NOTIFICATIONS_ENABLED: emailLive ? "true" : "false",
+  RESEND_API_KEY: emailLive ? email.RESEND_API_KEY : "",
+  ...(email.EMAIL_FROM ? { EMAIL_FROM: email.EMAIL_FROM } : {}),
 };
 // Never let hosted-Supabase settings leak into the local stack.
 delete env.NEXT_PUBLIC_SUPABASE_URL;
 delete env.SUPABASE_SERVICE_ROLE_KEY;
 
 console.log(`→ Postgres on 127.0.0.1:${pgPort}`);
+console.log(emailLive ? `→ email is LIVE via Resend, from ${email.EMAIL_FROM ?? "the default sender"}` : "→ email is simulated (set NOTIFICATIONS_ENABLED=true and RESEND_API_KEY in .env to send)");
 run("docker", ["compose", "up", "-d", "--wait", "postgres"], { env });
 
 console.log("→ applying migrations");

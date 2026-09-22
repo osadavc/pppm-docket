@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
-import { Download, ExternalLink, UserX } from "lucide-react";
+import { ClipboardPen, Download, ExternalLink, UserX } from "lucide-react";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { ClickToCopy } from "@/components/app/click-to-copy";
 import { AdvanceButton } from "@/components/applications/advance-button";
@@ -46,6 +46,7 @@ import {
   countNotificationsForApplication,
   listNotificationsForApplication,
 } from "@/lib/queries/notifications";
+import { getFeedbackContext } from "@/lib/queries/feedback";
 import { getCurrentStageForScheduling, listInterviewsForApplication } from "@/lib/queries/interviews";
 import { listAssignableInterviewers } from "@/lib/queries/stage-interviewers";
 import { getFillSummary } from "@/lib/queries/positions";
@@ -184,13 +185,14 @@ export default async function ApplicationPage({
       isStaff ? countNotificationsForApplication(applicationId, viewer) : 0,
     ]);
 
-  const [interviewList, schedulingStage, people] = isStaff
-    ? await Promise.all([
-        listInterviewsForApplication(applicationId),
-        getCurrentStageForScheduling(applicationId),
-        canManage ? listAssignableInterviewers() : [],
-      ])
-    : [[], null, []];
+  const [interviewList, schedulingStage, people, myFeedback] = await Promise.all([
+    listInterviewsForApplication(applicationId),
+    getCurrentStageForScheduling(applicationId),
+    canManage ? listAssignableInterviewers() : [],
+    getFeedbackContext(viewer.id, applicationId),
+  ]);
+  const onAnInterview = interviewList.some((i) => i.participants.some((p) => p.userId === viewer.id));
+  const feedbackHref = myFeedback ? `/applications/${applicationId}/feedback` : null;
 
   const active = header.status === "active";
   const tabsWithCounts = tabs.map((t) =>
@@ -232,6 +234,7 @@ export default async function ApplicationPage({
               <AdvanceButton
                 context={context}
                 canOverride={can(viewer.role, "application:override-gate")}
+                people={people.map((p) => ({ id: p.userId, name: p.name, jobTitle: p.jobTitle }))}
               />
             ) : null}
             {canManage && active ? <RejectDialog context={context} /> : null}
@@ -264,6 +267,31 @@ export default async function ApplicationPage({
         </Alert>
       ) : null}
 
+      {myFeedback ? (
+        <Alert>
+          <ClipboardPen />
+          <AlertTitle>
+            {myFeedback.scorecard?.status === "submitted"
+              ? `You submitted feedback for ${myFeedback.stageName}`
+              : `Your feedback is needed for ${myFeedback.stageName}`}
+          </AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {myFeedback.scorecard?.status === "submitted"
+                ? "You can still revise it while the candidate is at this stage."
+                : myFeedback.scorecard?.status === "draft"
+                  ? "You have a draft saved. Finish it whenever you are ready."
+                  : "Submit your scorecard once you have spoken with the candidate."}
+            </span>
+            <Button asChild size="sm">
+              <Link href={feedbackHref!}>
+                {myFeedback.scorecard?.status === "submitted" ? "Edit feedback" : myFeedback.scorecard ? "Continue feedback" : "Submit feedback"}
+              </Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       {context?.currentStage && (active || header.status === "on_hold") ? (
         <GatePanel
           gate={context.gate}
@@ -272,7 +300,7 @@ export default async function ApplicationPage({
         />
       ) : null}
 
-      {isStaff && (active || interviewList.length > 0) ? (
+      {(isStaff && (active || interviewList.length > 0)) || onAnInterview ? (
         <InterviewsPanel
           applicationId={applicationId}
           stageName={active ? (schedulingStage?.stageName ?? null) : null}
@@ -281,6 +309,8 @@ export default async function ApplicationPage({
           people={people.map((p) => ({ id: p.userId, name: p.name, jobTitle: p.jobTitle }))}
           standingPanelIds={schedulingStage?.standingPanelIds ?? []}
           canManage={canManage && active}
+          viewerId={viewer.id}
+          feedbackHref={feedbackHref}
         />
       ) : null}
 

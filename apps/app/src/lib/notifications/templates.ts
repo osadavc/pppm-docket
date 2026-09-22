@@ -64,6 +64,19 @@ ${signOff(context.companyName)}`,
   };
 }
 
+export function hired(context: TemplateContext): EmailTemplate {
+  return {
+    subject: `Welcome to ${context.companyName}: your offer for ${context.positionTitle}`,
+    body: `Hi ${greetingName(context.candidateName)},
+
+We’re delighted to let you know that we’d like you to join ${context.companyName} as ${context.positionTitle}. Everyone you met was impressed, and we’re excited to work with you.
+
+We’ll be in touch shortly with your offer letter and the details of your start date.
+
+${signOff(context.companyName)}`,
+  };
+}
+
 export function escapeHtml(text: string) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -73,7 +86,6 @@ export function escapeHtml(text: string) {
  * line break, and everything HR typed is escaped before it touches markup.
  */
 export type EmailBrand = {
-  logoUrl?: string;
   careersUrl?: string;
   /** Inbox preview line; defaults to the start of the message. */
   preheader?: string;
@@ -96,9 +108,7 @@ export function composeHtml(text: string, companyName = "Docket", brand: EmailBr
     brand.preheader ?? normalized.split(/\n{2,}/)[1]?.replace(/\s+/g, " ").slice(0, 140) ?? "",
   );
 
-  const mark = brand.logoUrl
-    ? `<img src="${escapeHtml(brand.logoUrl)}" width="32" height="32" alt="${initial}" style="display:block;width:32px;height:32px;border:0;border-radius:8px;background:#18181b;color:#ffffff;font-size:14px;font-weight:600;line-height:32px;text-align:center;" />`
-    : `<div style="width:32px;height:32px;background:#18181b;border-radius:8px;color:#ffffff;font-size:14px;font-weight:600;line-height:32px;text-align:center;">${initial}</div>`;
+  const mark = `<div style="width:32px;height:32px;background:#18181b;border-radius:8px;color:#ffffff;font-size:14px;font-weight:600;line-height:32px;text-align:center;">${initial}</div>`;
 
   const careersLink = brand.careersUrl
     ? `<a href="${escapeHtml(brand.careersUrl)}" style="color:#52525b;text-decoration:underline;text-underline-offset:3px;">View open roles</a>`

@@ -1,9 +1,51 @@
 "use client";
 
-import { useLayoutEffect, useRef, type ComponentProps } from "react";
+import { useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { Input } from "@/components/ui/input";
 
 const group = (digits: string) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+const groupRuns = (text: string) =>
+  text.replace(/(?<![\d.])\d{4,}(?![\d.])/g, (run) => group(run.replace(/^0+(?=\d)/, "")));
+
+/** Free text that groups long digit runs, for fields like "120000-140000 LKR". */
+export const GroupedNumberText = ({
+  defaultValue,
+  ...props
+}: Omit<ComponentProps<typeof Input>, "value" | "onChange" | "defaultValue"> & {
+  defaultValue?: string;
+}) => {
+  const ref = useRef<HTMLInputElement>(null);
+  const caretChars = useRef<number | null>(null);
+  const [value, setValue] = useState(groupRuns(defaultValue ?? ""));
+
+  useLayoutEffect(() => {
+    const input = ref.current;
+    if (!input || caretChars.current === null || document.activeElement !== input) return;
+    let seen = 0;
+    let position = 0;
+    while (position < value.length && seen < caretChars.current) {
+      if (value[position] !== ",") seen++;
+      position++;
+    }
+    input.setSelectionRange(position, position);
+    caretChars.current = null;
+  }, [value]);
+
+  return (
+    <Input
+      {...props}
+      ref={ref}
+      type="text"
+      value={value}
+      onChange={(event) => {
+        const { value: raw, selectionStart } = event.target;
+        caretChars.current = raw.slice(0, selectionStart ?? raw.length).replace(/,/g, "").length;
+        setValue(groupRuns(raw.replace(/(\d),(?=\d)/g, "$1")));
+      }}
+    />
+  );
+};
 
 export const NumberInput = ({
   value,

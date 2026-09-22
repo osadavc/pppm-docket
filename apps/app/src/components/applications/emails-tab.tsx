@@ -31,7 +31,7 @@ const TYPE_LABELS: Record<ApplicationEmail["type"], string> = {
   application_received: "Application received",
   stage_advanced: "Stage advanced",
   rejection: "Rejection",
-  decision_made: "Decision",
+  decision_made: "Hired",
   custom: "Custom",
   interview_scheduled: "Interview scheduled",
   interview_rescheduled: "Interview rescheduled",

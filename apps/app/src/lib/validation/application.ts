@@ -129,6 +129,7 @@ export type RejectApplicationInput = z.infer<typeof rejectApplicationSchema>;
 export const hireApplicationSchema = z.object({
   applicationId: z.uuid(),
   note: z.string().trim().max(2000).optional(),
+  notification: candidateEmailSchema.optional(),
 });
 
 export type HireApplicationInput = z.infer<typeof hireApplicationSchema>;

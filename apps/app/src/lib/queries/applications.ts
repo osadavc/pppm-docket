@@ -6,11 +6,16 @@ import {
   applications,
   candidates,
   positions,
+  positionStageInterviewers,
   positionStages,
+  stageKind,
+  user,
 } from "@/db/schema";
 import { evaluateStageGate, type StageGate } from "@/lib/domain/advancement";
 import { listEligiblePanelFeedback } from "@/lib/queries/stage-interviewers";
 import { REJECTION_REASON_LABELS } from "@/lib/validation/application";
+
+type StageKind = (typeof stageKind.enumValues)[number];
 
 export type AdvanceContext = {
   applicationId: string;
@@ -22,7 +27,14 @@ export type AdvanceContext = {
   status: string;
   currentStage: { id: string; name: string; orderIndex: number } | null;
   /** The stage they would move to, null when they are already at the end. */
-  nextStage: { id: string; name: string; orderIndex: number } | null;
+  nextStage: {
+    id: string;
+    name: string;
+    orderIndex: number;
+    kind?: StageKind;
+    /** Active members of its standing panel, to prefill an interview booking. */
+    panelIds?: string[];
+  } | null;
   gate: StageGate;
   /** Panel members who have not submitted yet, for a useful refusal. */
   outstandingInterviewers: string[];
@@ -67,7 +79,7 @@ export async function getAdvanceContext(
 
   // The next stage is the next one still on the live pipeline, archived
   // stages are skipped over rather than advanced into.
-  const nextStage =
+  const next =
     row.stageOrder === null
       ? null
       : ((
@@ -76,6 +88,7 @@ export async function getAdvanceContext(
               id: positionStages.id,
               name: positionStages.name,
               orderIndex: positionStages.orderIndex,
+              kind: positionStages.kind,
             })
             .from(positionStages)
             .where(
@@ -88,6 +101,19 @@ export async function getAdvanceContext(
             .orderBy(asc(positionStages.orderIndex))
             .limit(1)
         )[0] ?? null);
+
+  const nextStage = next
+    ? {
+        ...next,
+        panelIds: (
+          await db
+            .select({ userId: positionStageInterviewers.userId })
+            .from(positionStageInterviewers)
+            .innerJoin(user, and(eq(user.id, positionStageInterviewers.userId), eq(user.isActive, true)))
+            .where(eq(positionStageInterviewers.positionStageId, next.id))
+        ).map((r) => r.userId),
+      }
+    : null;
 
   let assignedInterviewerCount = 0;
   let submittedScorecardCount = 0;

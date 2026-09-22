@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
 import {
@@ -13,7 +13,8 @@ import {
   user,
 } from "@/db/schema";
 import { logActivity } from "@/lib/activity/log";
-import { requirePermission } from "@/lib/auth/guards";
+import { requirePermission, requireUser } from "@/lib/auth/guards";
+import { can } from "@/lib/auth/permissions";
 import { formatDateTime } from "@/lib/format";
 import {
   cancelInterviewSchema,
@@ -120,6 +121,54 @@ export async function scheduleInterview(
 
   revalidateApplication(v.applicationId, context.positionId);
   return ok({ interviewId });
+}
+
+/** Anyone on the interview, or HR, may mark it done whenever it actually happened. */
+export async function completeInterview(
+  interviewId: string,
+): Promise<ActionResult> {
+  const actor = await requireUser();
+  const parsed = cancelInterviewSchema.pick({ interviewId: true }).safeParse({ interviewId });
+  if (!parsed.success) return fail("That interview could not be found.");
+
+  const [row] = await db
+    .select({
+      status: interviews.status,
+      applicationId: interviews.applicationId,
+      positionId: applications.positionId,
+      candidateName: candidates.fullName,
+      stageName: positionStages.name,
+      isParticipant: sql<boolean>`exists (select 1 from ${interviewParticipants} where ${interviewParticipants.interviewId} = ${interviews.id} and ${interviewParticipants.userId} = ${actor.id})`,
+    })
+    .from(interviews)
+    .innerJoin(applications, eq(applications.id, interviews.applicationId))
+    .innerJoin(candidates, eq(candidates.id, applications.candidateId))
+    .innerJoin(applicationStages, eq(applicationStages.id, interviews.applicationStageId))
+    .innerJoin(positionStages, eq(positionStages.id, applicationStages.positionStageId))
+    .where(eq(interviews.id, interviewId));
+
+  if (!row) return fail("That interview could not be found.");
+  if (!row.isParticipant && !can(actor.role, "application:manage")) {
+    return fail("Only the people on this interview can mark it done.");
+  }
+  if (row.status === "cancelled") return fail("This interview was cancelled.");
+  if (row.status === "completed") return ok(undefined);
+
+  await db.transaction(async (tx) => {
+    await tx.update(interviews).set({ status: "completed" }).where(eq(interviews.id, interviewId));
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "interview.completed",
+      entityType: "interview",
+      entityId: interviewId,
+      applicationId: row.applicationId,
+      positionId: row.positionId,
+      summary: `${actor.name} marked the “${row.stageName}” interview with ${row.candidateName} as done`,
+    });
+  });
+
+  revalidateApplication(row.applicationId, row.positionId);
+  return ok(undefined);
 }
 
 export async function cancelInterview(

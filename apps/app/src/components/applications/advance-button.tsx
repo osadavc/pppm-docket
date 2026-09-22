@@ -24,6 +24,15 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { CandidateEmailComposer } from "@/components/applications/candidate-email-composer";
 import { candidateEmailToast } from "@/components/applications/email-toast";
+import {
+  InterviewFields,
+  draftErrors,
+  newInterviewDraft,
+  toScheduleInput,
+  type InterviewPerson,
+} from "@/components/applications/interview-fields";
+import { Switch } from "@/components/ui/switch";
+import { scheduleInterview } from "@/lib/actions/interviews";
 import { advanceApplication } from "@/lib/actions/applications";
 import { COMPANY_NAME } from "@/lib/company";
 import { GATE_EXPLANATIONS } from "@/lib/domain/advancement";
@@ -43,9 +52,12 @@ export function AdvanceButton({
   canOverride,
   shortcutKey,
   onDone,
+  people,
 }: {
   context: AdvanceContext;
   canOverride: boolean;
+  /** Staff who can be booked; when given, the next stage's interview is scheduled in the same step. */
+  people?: InterviewPerson[];
   /** Keyboard key that opens the dialog while this button is mounted. */
   shortcutKey?: string;
   /** Called after a successful move, before the router refresh. */
@@ -67,6 +79,11 @@ export function AdvanceButton({
   const [notifyCandidate, setNotifyCandidate] = useState(true);
   const [emailSubject, setEmailSubject] = useState(template.subject);
   const [emailBody, setEmailBody] = useState(template.body);
+  const canSchedule = Boolean(people?.length && context.nextStage);
+  const defaultSchedule = canSchedule && context.nextStage?.kind === "interview";
+  const [scheduleNext, setScheduleNext] = useState(defaultSchedule);
+  const [draft, setDraft] = useState(() => newInterviewDraft(context.nextStage?.panelIds ?? []));
+  const [draftIssues, setDraftIssues] = useState<Record<string, string[]>>({});
 
   const blocked = context.gate.blocked;
   const needsOverride = blocked && canOverride;
@@ -103,9 +120,17 @@ export function AdvanceButton({
     setNotifyCandidate(true);
     setEmailSubject(template.subject);
     setEmailBody(template.body);
+    setScheduleNext(defaultSchedule);
+    setDraft(newInterviewDraft(context.nextStage?.panelIds ?? []));
+    setDraftIssues({});
   }
 
   async function submit() {
+    if (scheduleNext) {
+      const missing = draftErrors(draft);
+      setDraftIssues(missing);
+      if (Object.keys(missing).length > 0) return;
+    }
     setPending(true);
     setError(undefined);
     const result = await advanceApplication({
@@ -127,6 +152,16 @@ export function AdvanceButton({
       result.data.overridden ? ", overriding the feedback gate" : ""
     }.`;
     candidateEmailToast(moved, result.data.email);
+
+    if (scheduleNext) {
+      const booked = await scheduleInterview(toScheduleInput(context.applicationId, draft));
+      if (booked.ok) toast.success(`${result.data.toStageName} interview scheduled.`);
+      else
+        toast.error(`Moved, but the interview was not scheduled: ${booked.error}`, {
+          description: "Book it from the Interviews card on this page.",
+        });
+    }
+
     setOpen(false);
     reset();
     onDone?.({ toStageName: result.data.toStageName });
@@ -213,6 +248,34 @@ export function AdvanceButton({
               <FieldDescription>Optional, recorded against the stage.</FieldDescription>
             </Field>
 
+            {canSchedule ? (
+              <div className="rounded-lg border">
+                <label className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+                  <span>
+                    <span className="block text-sm font-medium">
+                      Schedule the {context.nextStage.name} interview
+                    </span>
+                    <span className="text-muted-foreground block text-xs">
+                      Books it for the stage they are moving into, with the people you pick below.
+                    </span>
+                  </span>
+                  <Switch checked={scheduleNext} onCheckedChange={setScheduleNext} />
+                </label>
+                {scheduleNext ? (
+                  <div className="border-t px-4 py-4">
+                    <InterviewFields
+                      idPrefix="advance-interview"
+                      stageName={context.nextStage.name}
+                      draft={draft}
+                      onChange={setDraft}
+                      people={people ?? []}
+                      errors={draftIssues}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <CandidateEmailComposer
               idPrefix="advance-email"
               recipientEmail={context.candidateEmail}
@@ -240,7 +303,8 @@ export function AdvanceButton({
               }
             >
               {cta}
-              {!pending && notifyCandidate ? " & send email" : ""}
+              {!pending && scheduleNext ? " & schedule" : ""}
+              {!pending && notifyCandidate ? (scheduleNext ? ", email" : " & send email") : ""}
             </Button>
           </DialogFooter>
         </DialogContent>

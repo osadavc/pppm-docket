@@ -14,7 +14,7 @@ import {
   Quote,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type MarkdownEditorProps = {
@@ -94,6 +94,9 @@ const Toolbar = ({ editor }: { editor: Editor }) => {
   );
 };
 
+const MARKDOWN_HINT =
+  /^\s{0,3}(#{1,6}\s|[-*+]\s|\d+[.)]\s|>\s|```|\|.*\|)|\*\*[^*\n]+\*\*|__[^_\n]+__|\[[^\]\n]+\]\([^)\s]+\)|`[^`\n]+`/m;
+
 export const MarkdownEditor = ({
   id,
   name,
@@ -107,6 +110,7 @@ export const MarkdownEditor = ({
   className,
 }: MarkdownEditorProps) => {
   const [markdown, setMarkdown] = useState(value ?? defaultValue ?? "");
+  const editorRef = useRef<Editor | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -129,6 +133,17 @@ export const MarkdownEditor = ({
         class: "outline-none px-3 py-2",
         style: `min-height: ${minRows * 1.5 + 1}rem`,
       },
+      handlePaste: (_view, event) => {
+        const text = event.clipboardData?.getData("text/plain");
+        const current = editorRef.current;
+        if (!text || !current || !MARKDOWN_HINT.test(text)) return false;
+        event.preventDefault();
+        current.commands.insertContent(text, { contentType: "markdown" });
+        return true;
+      },
+    },
+    onCreate: ({ editor: e }) => {
+      editorRef.current = e;
     },
     onUpdate: ({ editor: e }) => {
       const next = e.isEmpty ? "" : e.getMarkdown();

@@ -11,6 +11,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { GroupedNumberText } from "@/components/app/number-input";
 import { Input } from "@/components/ui/input";
 import { applyToPosition } from "@/lib/actions/public-applications";
 import { HONEYPOT_FIELD } from "@/lib/validation/public-application";
@@ -71,11 +72,12 @@ export function ApplyForm({ positionId }: { positionId: string }) {
             <FieldLabel htmlFor="salaryExpectation">
               Salary expectation (optional)
             </FieldLabel>
-            <Input
+            <GroupedNumberText
               id="salaryExpectation"
               name="salaryExpectation"
+              inputMode="text"
               maxLength={60}
-              placeholder="e.g. 120k–140k"
+              placeholder="e.g. 150,000 or 120,000–140,000"
             />
             <FieldError errors={err("salaryExpectation")} />
           </Field>
