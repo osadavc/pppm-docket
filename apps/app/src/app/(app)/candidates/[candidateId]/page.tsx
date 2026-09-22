@@ -77,7 +77,11 @@ export default async function CandidatePage({
     ["Company", candidate.currentCompany || "—"],
     ["Source", CANDIDATE_SOURCE_LABELS[candidate.source]],
     ["Referred by", candidate.referredBy?.name ?? "—"],
-    ["Added by", candidate.createdBy?.name ?? "—"],
+    [
+      "Added by",
+      candidate.createdBy?.name ??
+        (candidate.source === "careers_site" ? "Careers site (self-applied)" : "—"),
+    ],
     ["Added", formatDate(candidate.createdAt)],
   ];
 

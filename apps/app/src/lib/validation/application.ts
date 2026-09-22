@@ -18,6 +18,8 @@ export const candidateEmailSchema = z.object({
 
 export type CandidateEmailInput = z.infer<typeof candidateEmailSchema>;
 
+export const OVERRIDE_REASON_MIN_LENGTH = 10;
+
 export const advanceApplicationSchema = z.object({
   applicationId: z.uuid(),
   note: z.string().trim().max(2000).optional(),
@@ -25,9 +27,23 @@ export const advanceApplicationSchema = z.object({
   notification: candidateEmailSchema.optional(),
   /**
    * Present only when HR is deliberately moving someone past an unsatisfied
-   * feedback gate. Required in that case so the reason is on the record.
+   * feedback gate. Required in that case so the reason is on the record, and
+   * long enough that "ok" cannot pass for one — the same floor the dialog
+   * applies before enabling the button.
    */
-  overrideReason: z.string().trim().max(2000).optional(),
+  overrideReason: z.preprocess(
+    // A blank textarea is "no override", not a too-short reason.
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z
+      .string()
+      .trim()
+      .min(
+        OVERRIDE_REASON_MIN_LENGTH,
+        `Explain the override in at least ${OVERRIDE_REASON_MIN_LENGTH} characters`,
+      )
+      .max(2000)
+      .optional(),
+  ),
 });
 
 export type AdvanceApplicationInput = z.infer<typeof advanceApplicationSchema>;
@@ -116,3 +132,23 @@ export const hireApplicationSchema = z.object({
 });
 
 export type HireApplicationInput = z.infer<typeof hireApplicationSchema>;
+
+/** Ad-hoc HR email to a candidate from their application. */
+export const customEmailSchema = z.object({
+  applicationId: z.uuid(),
+  subject: z
+    .string()
+    .trim()
+    .min(3, "Subject needs at least 3 characters")
+    .max(200, "Subject is too long")
+    .refine((value) => !/[\r\n]/.test(value), {
+      message: "Subject must be one line",
+    }),
+  body: z
+    .string()
+    .trim()
+    .min(10, "Write at least 10 characters")
+    .max(5000, "Message is too long (5,000 characters max)"),
+});
+
+export type CustomEmailInput = z.infer<typeof customEmailSchema>;

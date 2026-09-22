@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { AdvanceButton } from "@/components/applications/advance-button";
+import { EmailsTab } from "@/components/applications/emails-tab";
 import { FeedbackList } from "@/components/applications/feedback-list";
+import { FlowOverrideMenu } from "@/components/applications/flow-override-menu";
+import { GatePanel } from "@/components/applications/gate-panel";
+import { HireDialog } from "@/components/applications/hire-dialog";
+import { RejectDialog } from "@/components/applications/reject-dialog";
 import { ScorecardRevisionViewer } from "@/components/applications/scorecard-revision-viewer";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,6 +26,9 @@ import {
   getApplicationHeader,
   getApplicationTimeline,
 } from "@/lib/queries/activity";
+import { getAdvanceContext } from "@/lib/queries/applications";
+import { listNotificationsForApplication } from "@/lib/queries/notifications";
+import { getFillSummary } from "@/lib/queries/positions";
 import { getApplicationScorecardRevisions } from "@/lib/queries/scorecard-revisions";
 import { listScorecardsForApplication } from "@/lib/queries/scorecards";
 
@@ -38,12 +47,22 @@ export default async function ApplicationPage({
   const header = await getApplicationHeader(applicationId);
   if (!header) notFound();
 
-  const [entries, revisionGroups, feedback] = await Promise.all([
-    getApplicationTimeline(applicationId, viewer),
-    getApplicationScorecardRevisions(applicationId, viewer),
-    listScorecardsForApplication(applicationId, viewer),
-  ]);
+  const canManage = can(viewer.role, "application:manage");
+  const canOverrideFlow = can(viewer.role, "application:override-flow");
   const seesEverything = can(viewer.role, "scorecard:read-all");
+
+  const [entries, revisionGroups, feedback, context, emails, fill] =
+    await Promise.all([
+      getApplicationTimeline(applicationId, viewer),
+      getApplicationScorecardRevisions(applicationId, viewer),
+      listScorecardsForApplication(applicationId, viewer),
+      getAdvanceContext(applicationId),
+      listNotificationsForApplication(applicationId, viewer),
+      canManage ? getFillSummary(header.positionId) : Promise.resolve(null),
+    ]);
+
+  const showActions = context && (canManage || canOverrideFlow);
+  const active = header.status === "active";
 
   return (
     <>
@@ -63,7 +82,16 @@ export default async function ApplicationPage({
             header.positionTitle
           )}{" "}
           · applied {formatDate(header.appliedAt)}
+          {header.createdByName
+            ? ` · added by ${header.createdByName}`
+            : " · applied via the careers site"}
         </p>
+        {seesEverything && header.salaryExpectation ? (
+          <p className="text-muted-foreground mt-1 text-sm">
+            Salary expectation:{" "}
+            <span className="text-foreground">{header.salaryExpectation}</span>
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -73,7 +101,30 @@ export default async function ApplicationPage({
         <Badge variant="secondary" className="font-normal capitalize">
           {header.status.replace("_", " ")}
         </Badge>
+        {showActions ? (
+          <div className="ml-auto flex items-center gap-2">
+            {canManage ? (
+              <AdvanceButton
+                context={context}
+                canOverride={can(viewer.role, "application:override-gate")}
+              />
+            ) : null}
+            {canManage && fill && active ? (
+              <HireDialog context={context} fill={fill} />
+            ) : null}
+            {canManage && active ? <RejectDialog context={context} /> : null}
+            {canOverrideFlow ? <FlowOverrideMenu context={context} /> : null}
+          </div>
+        ) : null}
       </div>
+
+      {context?.currentStage && (active || header.status === "on_hold") ? (
+        <GatePanel
+          gate={context.gate}
+          stageName={context.currentStage.name}
+          outstandingInterviewers={context.outstandingInterviewers}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -99,6 +150,17 @@ export default async function ApplicationPage({
       />
 
       <ScorecardRevisionViewer groups={revisionGroups} />
+
+      {can(viewer.role, "application:view") ? (
+        <EmailsTab
+          applicationId={applicationId}
+          candidateName={header.candidateName}
+          candidateEmail={header.candidateEmail}
+          positionTitle={header.positionTitle}
+          emails={emails}
+          canSend={canManage}
+        />
+      ) : null}
     </>
   );
 }

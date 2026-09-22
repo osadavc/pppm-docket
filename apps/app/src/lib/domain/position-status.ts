@@ -60,8 +60,28 @@ export function isPubliclyVisible(status: PositionStatus) {
   return status === "open";
 }
 
-export function acceptsApplications(status: PositionStatus) {
-  return isPubliclyVisible(status);
+/**
+ * Whether a role takes new applications right now. Staff adding a candidate
+ * by hand pass no deadline — a late referral is HR's call — while the public
+ * path passes the position's deadline, which closes the form the moment it
+ * passes even though the role stays visible.
+ */
+export function acceptsApplications(
+  status: PositionStatus,
+  options: { deadline?: Date | null; now?: Date } = {},
+) {
+  if (!isPubliclyVisible(status)) return false;
+  if (options.deadline === undefined || options.deadline === null) return true;
+  return options.deadline.getTime() > (options.now ?? new Date()).getTime();
+}
+
+/** True when the role is visible but its window has passed. */
+export function applicationWindowClosed(
+  status: PositionStatus,
+  deadline: Date | null,
+  now = new Date(),
+) {
+  return isPubliclyVisible(status) && !acceptsApplications(status, { deadline, now });
 }
 
 export const TERMINAL_STATUS_COPY: Record<

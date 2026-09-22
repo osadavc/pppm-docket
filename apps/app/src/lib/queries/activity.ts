@@ -11,9 +11,11 @@ import {
   notifications,
   positions,
   positionStages,
+  scorecardRevisions,
   scorecards,
   user,
 } from "@/db/schema";
+import type { NotificationStatus } from "@/db/schema/enums";
 import type { SessionUser } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
 import { interviewerCanViewApplication } from "./stage-interviewers";
@@ -25,7 +27,9 @@ export type CommunicationSnapshot = {
   deliveryEmail: string | null;
   subject: string;
   body: string;
-  status: "queued" | "dispatching" | "demo" | "sent" | "failed";
+  status: NotificationStatus;
+  /** A provider call ended without a verdict; a retry reconciles it. */
+  outcomeUnknown: boolean;
   attemptCount: number;
   providerMessageId: string | null;
   createdAt: Date;
@@ -58,6 +62,10 @@ export type ApplicationHeader = {
   positionTitle: string;
   currentStageName: string | null;
   appliedAt: Date;
+  /** From the public form; the page shows it to HR and management only. */
+  salaryExpectation: string | null;
+  /** Null when the candidate applied from the careers site. */
+  createdByName: string | null;
 };
 
 /**
@@ -90,6 +98,8 @@ export async function getApplicationHeader(
       positionTitle: positions.title,
       currentStageName: positionStages.name,
       appliedAt: applications.appliedAt,
+      salaryExpectation: applications.salaryExpectation,
+      createdByName: user.name,
     })
     .from(applications)
     .innerJoin(candidates, eq(candidates.id, applications.candidateId))
@@ -98,6 +108,7 @@ export async function getApplicationHeader(
       positionStages,
       eq(positionStages.id, applications.currentStageId),
     )
+    .leftJoin(user, eq(user.id, applications.createdById))
     .where(eq(applications.id, applicationId));
   return row ?? null;
 }
@@ -109,23 +120,83 @@ const RECOMMENDATION_LABELS: Record<string, string> = {
   strong_yes: "Strong yes",
 };
 
-function activityDetail(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    return null;
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function feedbackSummary(
+  recommendation: unknown,
+  overallScore: unknown,
+  narrative?: unknown,
+) {
+  return (
+    [
+      typeof recommendation === "string"
+        ? RECOMMENDATION_LABELS[recommendation]
+        : null,
+      overallScore !== null && overallScore !== undefined && overallScore !== ""
+        ? `score ${overallScore}`
+        : null,
+      typeof narrative === "string" && narrative.trim() ? narrative.trim() : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || null
+  );
+}
+
+/**
+ * The line under a log entry that everyone entitled to the entry may read.
+ * The override reason is deliberately *not* here — it is surfaced through
+ * `meta`, which is only populated for HR and management.
+ */
+function activityDetail(action: string, metadata: unknown): string | null {
+  const values = asRecord(metadata);
+  if (!values) return null;
+
+  if (action === "scorecard.updated" || action === "scorecard.revised") {
+    const current = asRecord(values.current);
+    return current
+      ? feedbackSummary(current.recommendation, current.overallScore)
+      : null;
   }
 
-  const values = metadata as Record<string, unknown>;
   const note = typeof values.note === "string" ? values.note.trim() : "";
-  const overrideReason =
-    typeof values.overrideReason === "string"
-      ? values.overrideReason.trim()
-      : "";
+  return note || null;
+}
 
-  return (
-    [note || null, overrideReason ? `Gate override: ${overrideReason}` : null]
-      .filter(Boolean)
-      .join("\n") || null
-  );
+/**
+ * Who to credit when no staff member acted. A public application is the
+ * candidate's own doing and is labelled as such rather than left blank, so
+ * "nobody" is never mistaken for "HR forgot to record it".
+ */
+function systemActorLabel(metadata: unknown): string | null {
+  const values = asRecord(metadata);
+  if (values?.origin === "candidate" || values?.source === "careers_site" || values?.origin === "careers_site") {
+    return "Candidate via careers site";
+  }
+  return "System";
+}
+
+/** What HR and management additionally see on an entry. */
+function privilegedMeta(metadata: unknown): Record<string, unknown> | null {
+  const values = asRecord(metadata);
+  if (!values) return null;
+
+  const overrideReason =
+    typeof values.overrideReason === "string" ? values.overrideReason.trim() : "";
+  const outstanding = Array.isArray(values.outstandingInterviewers)
+    ? values.outstandingInterviewers.filter(
+        (name): name is string => typeof name === "string",
+      )
+    : [];
+
+  return {
+    ...values,
+    overrideReason: overrideReason || null,
+    outstandingInterviewers: outstanding,
+  };
 }
 
 /**
@@ -187,6 +258,11 @@ export async function getApplicationTimeline(
         recommendation: scorecards.recommendation,
         overallScore: scorecards.overallScore,
         strengths: scorecards.strengths,
+        // What was actually submitted, before any later edit. Revision 1 is
+        // written with the submission; older rows without one fall back to
+        // the live values.
+        submittedRecommendation: scorecardRevisions.recommendation,
+        submittedScore: scorecardRevisions.overallScore,
         authorId: scorecards.authorId,
         authorName: user.name,
         stageName: positionStages.name,
@@ -201,6 +277,13 @@ export async function getApplicationTimeline(
       .innerJoin(
         positionStages,
         eq(positionStages.id, applicationStages.positionStageId),
+      )
+      .leftJoin(
+        scorecardRevisions,
+        and(
+          eq(scorecardRevisions.scorecardId, scorecards.id),
+          eq(scorecardRevisions.revisionNumber, 1),
+        ),
       )
       .where(
         and(
@@ -241,10 +324,11 @@ export async function getApplicationTimeline(
         error: notifications.error,
         attemptCount: notifications.attemptCount,
         lastAttemptAt: notifications.lastAttemptAt,
+        metadata: notifications.metadata,
         actorName: user.name,
       })
       .from(notifications)
-      .leftJoin(user, eq(user.id, notifications.initiatedById))
+      .leftJoin(user, eq(user.id, notifications.actorId))
       .where(
         and(
           eq(notifications.applicationId, applicationId),
@@ -267,12 +351,10 @@ export async function getApplicationTimeline(
       !seesEverything &&
       (r.action === "scorecard.revised" || r.action === "scorecard.updated")
     ) {
-      const metadata =
-        r.metadata &&
-        typeof r.metadata === "object" &&
-        !Array.isArray(r.metadata)
-          ? (r.metadata as Record<string, unknown>)
-          : null;
+      // Same-stage peer rule, applied to revision events exactly as it is to
+      // the scorecards themselves: visible once the viewer has submitted for
+      // that stage, or when it is their own.
+      const metadata = asRecord(r.metadata);
       const applicationStageId = metadata?.applicationStageId;
       const isOwn = r.actorId === viewer.id;
       if (
@@ -288,12 +370,10 @@ export async function getApplicationTimeline(
       id: `log-${r.id}`,
       kind: r.action.startsWith("scorecard.") ? "feedback" : "stage",
       at: r.at,
-      actorName: r.actorName ?? null,
+      actorName: r.actorName ?? (r.actorId ? null : systemActorLabel(r.metadata)),
       title: r.summary,
-      detail: activityDetail(r.metadata),
-      meta: seesEverything
-        ? (r.metadata as Record<string, unknown> | null)
-        : null,
+      detail: activityDetail(r.action, r.metadata),
+      meta: seesEverything ? privilegedMeta(r.metadata) : null,
       communication: null,
     });
   }
@@ -310,35 +390,33 @@ export async function getApplicationTimeline(
       at: s.submittedAt ?? s.updatedAt,
       actorName: s.authorName,
       title: `${isOwn ? "You" : s.authorName} submitted feedback for “${s.stageName}”`,
-      detail:
-        [
-          s.recommendation ? RECOMMENDATION_LABELS[s.recommendation] : null,
-          s.overallScore ? `score ${s.overallScore}` : null,
-          s.strengths,
-        ]
-          .filter(Boolean)
-          .join(" · ") || null,
+      detail: feedbackSummary(
+        s.submittedRecommendation ?? s.recommendation,
+        s.submittedScore ?? s.overallScore,
+        s.strengths,
+      ),
       meta: null,
       communication: null,
     });
   }
 
   for (const e of emailRows) {
+    const outcomeUnknown = e.metadata?.outcome === "unknown";
     const emailDetail = (() => {
       if (e.status === "sent") {
-        return `Sent to ${e.deliveryEmail ?? e.recipientEmail}`;
+        return `Sent to ${e.deliveryEmail ?? e.recipientEmail}${e.deliveryEmail && e.deliveryEmail !== e.recipientEmail ? ` (redirected; intended for ${e.recipientEmail})` : ""}`;
       }
-      if (e.status === "demo") {
-        return e.sentAt
-          ? `Demo delivered to ${e.deliveryEmail ?? "the configured inbox"} · intended for ${e.recipientEmail}`
-          : `Demo only — no external delivery${e.deliveryEmail && e.deliveryEmail !== e.recipientEmail ? ` · demo recipient ${e.deliveryEmail}` : ""} · intended for ${e.recipientEmail}`;
+      if (e.status === "simulated") {
+        return `Simulated — recorded, not sent · intended for ${e.recipientEmail}`;
       }
       if (e.status === "failed") {
         const attempts = `${e.attemptCount} attempt${e.attemptCount === 1 ? "" : "s"}`;
-        return `Failed for ${e.recipientEmail} · ${attempts}${e.error ? ` · ${e.error}` : ""}`;
+        return `Delivery failed for ${e.recipientEmail} · ${attempts}${e.error ? ` · ${e.error}` : ""}`;
       }
       if (e.status === "dispatching") {
-        return `Dispatching to ${e.deliveryEmail ?? e.recipientEmail}`;
+        return outcomeUnknown
+          ? `Delivery outcome unknown for ${e.recipientEmail} · retry to reconcile${e.error ? ` · ${e.error}` : ""}`
+          : `Dispatching to ${e.deliveryEmail ?? e.recipientEmail}`;
       }
       return `Queued for ${e.recipientEmail}`;
     })();
@@ -349,7 +427,7 @@ export async function getApplicationTimeline(
       // This is the time the named actor initiated the communication. Outcome
       // timestamps remain available in the inspectable delivery facts below.
       at: e.at,
-      actorName: e.actorName,
+      actorName: e.actorName ?? systemActorLabel(e.metadata),
       title: e.subject,
       detail: emailDetail,
       meta: null,
@@ -359,6 +437,7 @@ export async function getApplicationTimeline(
         subject: e.subject,
         body: e.body,
         status: e.status,
+        outcomeUnknown,
         attemptCount: e.attemptCount,
         providerMessageId: e.providerMessageId,
         createdAt: e.at,

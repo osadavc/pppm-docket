@@ -132,15 +132,24 @@ export const notificationType = pgEnum("notification_type", [
   "stage_advanced",
   "decision_made",
   "account_invited",
+  // Candidate-facing messages recorded by the notification service.
+  "application_received",
+  "rejection",
+  "custom",
 ]);
 
 export const notificationStatus = pgEnum("notification_status", [
   "queued",
   "dispatching",
-  "demo",
   "sent",
   "failed",
+  // Recorded with its rendered body but never handed to a provider, because
+  // NOTIFICATIONS_ENABLED is off or no RESEND_API_KEY is configured.
+  "simulated",
 ]);
+
+export type NotificationType = (typeof notificationType.enumValues)[number];
+export type NotificationStatus = (typeof notificationStatus.enumValues)[number];
 
 export type UserRole = (typeof userRole.enumValues)[number];
 export type PositionStatus = (typeof positionStatus.enumValues)[number];

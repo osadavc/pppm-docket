@@ -1,4 +1,13 @@
-import { index, integer, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { candidates } from "./candidates";
 import { applicationStatus, rejectionReason, stageProgressStatus } from "./enums";
@@ -35,9 +44,12 @@ export const applications = pgTable(
     rejectionReason: rejectionReason("rejection_reason"),
     /** Free-text detail accompanying the decision. Never the reportable fact. */
     decisionReason: text("decision_reason"),
-    createdById: text("created_by_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "restrict" }),
+    /** As typed on the public form; shown to HR and management only. */
+    salaryExpectation: text("salary_expectation"),
+    /** Null when the application arrived from the public careers site. */
+    createdById: text("created_by_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -52,6 +64,10 @@ export const applications = pgTable(
     index("applications_candidate_idx").on(t.candidateId),
     // Drop-out analysis groups by this, always within a position.
     index("applications_rejection_reason_idx").on(t.positionId, t.rejectionReason),
+    check(
+      "applications_salary_expectation_length",
+      sql`${t.salaryExpectation} IS NULL OR char_length(${t.salaryExpectation}) <= 60`,
+    ),
   ],
 );
 

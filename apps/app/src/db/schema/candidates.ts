@@ -26,9 +26,10 @@ export const candidates = pgTable(
       onDelete: "set null",
     }),
     notes: text("notes"),
-    createdById: text("created_by_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "restrict" }),
+    /** Null when the candidate applied themselves from the careers site. */
+    createdById: text("created_by_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

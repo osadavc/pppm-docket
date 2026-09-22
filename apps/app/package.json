@@ -18,7 +18,11 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "bun --conditions=react-server run src/db/seed.ts",
-    "auth:generate": "bun run node_modules/auth/dist/index.mjs generate"
+    "auth:generate": "bun run node_modules/auth/dist/index.mjs generate",
+    "test:notifications": "bun test src/lib/notifications/templates.test.ts src/lib/notifications/transport.test.ts",
+    "test:decisions": "bun --env-file=.env.local --conditions=react-server test src/lib/services/application-decisions.integration.test.ts",
+    "test:public-apply": "bun --env-file=.env.local --conditions=react-server test src/lib/services/public-applications.integration.test.ts",
+    "test:unit": "bun test src/lib/domain src/lib/notifications src/lib/validation src/components/layout"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

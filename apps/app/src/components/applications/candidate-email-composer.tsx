@@ -40,18 +40,18 @@ export function CandidateEmailComposer({
     <FieldSet>
       <FieldLegend variant="label">Candidate communication</FieldLegend>
       <FieldDescription>
-        Email stays off until you select it. When selected, it is queued only
-        after the pipeline change succeeds.
+        The message is recorded and sent only after the decision succeeds. A
+        blocked or failed decision sends nothing.
       </FieldDescription>
 
       <FieldGroup>
         <Field orientation="horizontal">
           <FieldContent>
             <FieldLabel htmlFor={`${idPrefix}-notify`}>
-              Email candidate
+              Email the candidate
             </FieldLabel>
             <FieldDescription>
-              Include the edited message with this decision.
+              Review the message below; it goes out exactly as edited.
             </FieldDescription>
           </FieldContent>
           <Switch

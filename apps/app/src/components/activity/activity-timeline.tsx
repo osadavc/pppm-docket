@@ -21,6 +21,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { formatDateTime } from "@/lib/format";
+import { deliveryBadgeVariant, deliveryLabel } from "@/lib/notifications/labels";
 import { cn } from "@/lib/utils";
 import type {
   CommunicationSnapshot,
@@ -46,21 +47,32 @@ const KIND_LABELS: Record<TimelineKind, string> = {
   email: "Email",
 };
 
-const DELIVERY_LABELS: Record<CommunicationSnapshot["status"], string> = {
-  queued: "Queued",
-  dispatching: "Dispatching",
-  demo: "Demo",
-  sent: "Sent",
-  failed: "Failed",
-};
+/**
+ * Lines only HR and management get: the server leaves `meta` null for anyone
+ * else, so an interviewer sees that an override happened but never why.
+ */
+function MetaLines({ meta }: { meta: Record<string, unknown> }) {
+  const overrideReason =
+    typeof meta.overrideReason === "string" ? meta.overrideReason : null;
+  const outstanding = Array.isArray(meta.outstandingInterviewers)
+    ? (meta.outstandingInterviewers as string[])
+    : [];
 
-function deliveryBadgeVariant(status: CommunicationSnapshot["status"]) {
-  if (status === "failed") return "destructive" as const;
-  if (status === "sent") return "default" as const;
-  if (status === "demo" || status === "dispatching") {
-    return "secondary" as const;
-  }
-  return "outline" as const;
+  if (!overrideReason) return null;
+
+  return (
+    <div className="mt-1 space-y-0.5 text-sm">
+      <p className="text-foreground">
+        <span className="text-muted-foreground">Reason:</span>{" "}
+        <q className="italic">{overrideReason}</q>
+      </p>
+      {outstanding.length > 0 ? (
+        <p className="text-muted-foreground text-xs">
+          Feedback still outstanding from {outstanding.join(", ")} at the time.
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function CommunicationDisclosure({
@@ -91,8 +103,8 @@ function CommunicationDisclosure({
               The rendered content retained before delivery was attempted.
             </CardDescription>
             <CardAction>
-              <Badge variant={deliveryBadgeVariant(communication.status)}>
-                {DELIVERY_LABELS[communication.status]}
+              <Badge variant={deliveryBadgeVariant(communication)}>
+                {deliveryLabel(communication)}
               </Badge>
             </CardAction>
           </CardHeader>
@@ -129,7 +141,7 @@ function CommunicationDisclosure({
               {communication.sentAt ? (
                 <div className="flex flex-col gap-1">
                   <dt className="text-muted-foreground font-medium uppercase">
-                    {communication.status === "demo" ? "Demo outcome" : "Sent"}
+                    Sent
                   </dt>
                   <dd>{formatDateTime(communication.sentAt)}</dd>
                 </div>
@@ -214,12 +226,20 @@ export function ActivityTimeline({ entries }: { entries: TimelineEntry[] }) {
             </div>
 
             <div className={cn("min-w-0 flex-1", isLast ? "pb-0" : "pb-6")}>
-              <p className="text-sm">{entry.title}</p>
+              <p className="flex flex-wrap items-center gap-2 text-sm">
+                {entry.title}
+                {entry.communication ? (
+                  <Badge variant={deliveryBadgeVariant(entry.communication)}>
+                    {deliveryLabel(entry.communication)}
+                  </Badge>
+                ) : null}
+              </p>
               {entry.detail ? (
                 <p className="text-muted-foreground mt-0.5 text-sm whitespace-pre-wrap">
                   {entry.detail}
                 </p>
               ) : null}
+              {entry.meta ? <MetaLines meta={entry.meta} /> : null}
               <p className="text-muted-foreground mt-1 text-xs">
                 <span className="sr-only">{KIND_LABELS[entry.kind]} — </span>
                 {entry.actorName ? `${entry.actorName} · ` : ""}

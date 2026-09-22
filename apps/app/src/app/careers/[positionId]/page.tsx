@@ -3,7 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { ApplyForm } from "@/components/careers/apply-form";
+import { acceptsApplications } from "@/lib/domain/position-status";
 import { EMPLOYMENT_TYPE_LABELS, formatDate } from "@/lib/format";
 import { getPublicPosition } from "@/lib/queries/positions";
 
@@ -18,6 +26,7 @@ export default async function CareersRolePage({
   // be reached even by guessing its id.
   const role = await getPublicPosition(positionId);
   if (!role) notFound();
+  const open = acceptsApplications("open", { deadline: role.applicationDeadline });
 
   return (
     <>
@@ -65,6 +74,29 @@ export default async function CareersRolePage({
           </CardContent>
         </Card>
       ) : null}
+
+      {/* The role stays visible after its deadline; only the form closes. The
+          action re-checks the same rule, so a stale page cannot sneak one in. */}
+      <Card className="mt-8" id="apply">
+        <CardHeader>
+          <CardTitle>Apply</CardTitle>
+          {open ? (
+            <CardDescription>
+              Takes about two minutes. We read every application and reply
+              either way.
+            </CardDescription>
+          ) : null}
+        </CardHeader>
+        <CardContent>
+          {open ? (
+            <ApplyForm positionId={role.id} />
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              The application window for this role has closed.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 }

@@ -199,6 +199,19 @@ export async function getPublicPosition(positionId: string) {
   return row ?? null;
 }
 
+/**
+ * Title only, any status. For the post-apply receipt, where the role closing
+ * a moment after someone applied must not 404 their confirmation.
+ */
+export async function getPositionTitle(positionId: string) {
+  const [row] = await db
+    .select({ id: positions.id, title: positions.title })
+    .from(positions)
+    .where(eq(positions.id, positionId))
+    .limit(1);
+  return row ?? null;
+}
+
 export type FillSummary = {
   openings: number;
   hired: number;
