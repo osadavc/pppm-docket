@@ -13,6 +13,7 @@ import {
   positions,
   scorecardCriteria,
   scorecardRatings,
+  scorecardRevisions,
   scorecards,
   user,
 } from "@/db/schema";
@@ -229,7 +230,7 @@ test.afterAll(async () => {
   await sql.end();
 });
 
-test("submit feedback, refuse a stale duplicate, clear the gate, and advance", async ({
+test("submit, revise with immutable history, clear the gate, and advance", async ({
   browser,
 }) => {
   const interviewer = await browser.newContext();
@@ -253,7 +254,45 @@ test("submit feedback, refuse a stale duplicate, clear the gate, and advance", a
     page.getByRole("button", { name: "Submit feedback" }),
   ).toHaveCount(0);
   await expect(
-    page.getByText("Feedback submitted", { exact: true }),
+    page.getByText("Edit your feedback", { exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(
+    page.getByText("Nothing changed.", { exact: true }),
+  ).toBeVisible();
+
+  const staleEditPage = await interviewer.newPage();
+  await staleEditPage.goto(`/applications/${applicationId}/feedback`);
+  await expect(
+    staleEditPage.getByRole("button", { name: "Save changes" }),
+  ).toBeVisible();
+
+  await page
+    .getByLabel("Strengths")
+    .fill("The candidate connected new evidence to a clear decision.");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(
+    page.getByText("Feedback updated.", { exact: true }),
+  ).toBeVisible();
+
+  await staleEditPage
+    .getByLabel("Strengths")
+    .fill("A conflicting assessment from a stale browser session.");
+  await staleEditPage.getByRole("button", { name: "Save changes" }).click();
+  await expect(
+    staleEditPage.getByText(
+      "This feedback was changed by another session — reload and try again.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+
+  await page
+    .getByLabel("Notes")
+    .fill("This second correction adds the final interview context.");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(
+    page.getByText("Feedback updated.", { exact: true }),
   ).toBeVisible();
 
   await stalePage.getByRole("button", { name: "Submit feedback" }).click();
@@ -267,6 +306,7 @@ test("submit feedback, refuse a stale duplicate, clear the gate, and advance", a
       status: scorecards.status,
       submittedAt: scorecards.submittedAt,
       overallScore: scorecards.overallScore,
+      revisionCount: scorecards.revisionCount,
     })
     .from(scorecards)
     .where(
@@ -278,6 +318,7 @@ test("submit feedback, refuse a stale duplicate, clear the gate, and advance", a
   assert.ok(saved);
   assert.ok(saved.submittedAt);
   assert.equal(saved.overallScore, "4.00");
+  assert.equal(saved.revisionCount, 3);
 
   const ratings = await db
     .select({
@@ -287,6 +328,15 @@ test("submit feedback, refuse a stale duplicate, clear the gate, and advance", a
     .from(scorecardRatings)
     .where(eq(scorecardRatings.scorecardId, saved.id));
   assert.deepEqual(ratings, [{ criterionId, rating: 4 }]);
+
+  const revisions = await db
+    .select({ revisionNumber: scorecardRevisions.revisionNumber })
+    .from(scorecardRevisions)
+    .where(eq(scorecardRevisions.scorecardId, saved.id));
+  assert.deepEqual(
+    revisions.map((revision) => revision.revisionNumber).sort(),
+    [1, 2, 3],
+  );
 
   const submissionEvents = await db
     .select({ id: activityLog.id })
@@ -299,6 +349,34 @@ test("submit feedback, refuse a stale duplicate, clear the gate, and advance", a
     );
   assert.equal(submissionEvents.length, 1);
 
+  const updateEvents = await db
+    .select({ id: activityLog.id })
+    .from(activityLog)
+    .where(
+      and(
+        eq(activityLog.applicationId, applicationId),
+        eq(activityLog.action, "scorecard.updated"),
+      ),
+    );
+  assert.equal(updateEvents.length, 2);
+
+  const gateScorecards = await db
+    .select({ id: scorecards.id })
+    .from(scorecards)
+    .where(
+      and(
+        eq(scorecards.applicationStageId, applicationStageId),
+        eq(scorecards.status, "submitted"),
+      ),
+    );
+  assert.equal(gateScorecards.length, 1);
+
+  await page.goto(`/applications/${applicationId}`);
+  await page.getByRole("button", { name: "Edited ×2" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Edit history");
+  await expect(page.getByRole("dialog")).toContainText("new evidence");
+
+  await staleEditPage.close();
   await interviewer.close();
 
   const hr = await browser.newContext();

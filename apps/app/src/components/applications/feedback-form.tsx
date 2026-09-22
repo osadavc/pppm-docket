@@ -63,13 +63,22 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
 
   useEffect(() => {
     if (!state?.ok) return;
-    toast.success("Feedback submitted.");
+    toast.success(
+      state.data.changed
+        ? state.data.revised
+          ? "Feedback updated."
+          : "Feedback submitted."
+        : "Nothing changed.",
+    );
     router.refresh();
   }, [router, state]);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
       <input type="hidden" name="applicationId" value={context.applicationId} />
+      {context.scorecard?.status === "submitted" ? (
+        <input type="hidden" name="scorecardId" value={context.scorecard.id} />
+      ) : null}
       <input
         type="hidden"
         name="baseRevision"
@@ -297,12 +306,27 @@ export function FeedbackForm({ context }: { context: FeedbackContext }) {
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" name="intent" value="submit" disabled={pending}>
+        <Button
+          type="submit"
+          name="intent"
+          value={
+            context.scorecard?.status === "submitted" ? "revise" : "submit"
+          }
+          disabled={pending}
+        >
           <CheckCircle2 data-icon="inline-start" />
-          {pending ? "Submitting…" : "Submit feedback"}
+          {pending
+            ? context.scorecard?.status === "submitted"
+              ? "Saving…"
+              : "Submitting…"
+            : context.scorecard?.status === "submitted"
+              ? "Save changes"
+              : "Submit feedback"}
         </Button>
         <p className="text-muted-foreground text-xs">
-          Submitting shares this feedback under Docket&apos;s visibility rules.
+          {context.scorecard?.status === "submitted"
+            ? "Changes create an immutable revision and do not affect the feedback gate."
+            : "Submitting shares this feedback under Docket&apos;s visibility rules."}
         </p>
       </div>
     </form>

@@ -263,7 +263,10 @@ export async function getApplicationTimeline(
   );
 
   for (const r of logRows) {
-    if (!seesEverything && r.action === "scorecard.revised") {
+    if (
+      !seesEverything &&
+      (r.action === "scorecard.revised" || r.action === "scorecard.updated")
+    ) {
       const metadata =
         r.metadata &&
         typeof r.metadata === "object" &&

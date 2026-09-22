@@ -15,20 +15,30 @@ import {
 } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/guards";
 import { getApplicationTimeline } from "@/lib/queries/activity";
-import { getFeedbackContext } from "@/lib/queries/feedback";
+import {
+  getFeedbackContext,
+  getScorecardEditContext,
+} from "@/lib/queries/feedback";
 
 export const metadata: Metadata = { title: "Feedback · Docket" };
 
 export default async function FeedbackPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ applicationId: string }>;
+  searchParams: Promise<{ scorecard?: string }>;
 }) {
   const viewer = await requireUser();
   const { applicationId } = await params;
+  const { scorecard: scorecardId } = await searchParams;
   if (!z.uuid().safeParse(applicationId).success) notFound();
 
-  const context = await getFeedbackContext(viewer.id, applicationId);
+  const context = scorecardId
+    ? z.uuid().safeParse(scorecardId).success
+      ? await getScorecardEditContext(viewer, applicationId, scorecardId)
+      : null
+    : await getFeedbackContext(viewer.id, applicationId);
   if (!context) forbidden();
   const submitted = context.scorecard?.status === "submitted";
   const timeline = submitted
@@ -68,13 +78,16 @@ export default async function FeedbackPage({
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Feedback submitted</CardTitle>
+              <CardTitle>Edit your feedback</CardTitle>
               <CardDescription>
-                Your scorecard is recorded. Peer feedback for this stage is now
-                visible according to Docket&apos;s feedback rules.
+                Your original submission remains in the audit history. Saving
+                changes creates a new revision without changing the feedback
+                gate.
               </CardDescription>
             </CardHeader>
           </Card>
+
+          <FeedbackForm context={context} />
 
           <Card>
             <CardHeader>
