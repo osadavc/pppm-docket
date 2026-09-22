@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ClipboardCheck } from "lucide-react";
+import { StatTile } from "@/components/app/stat-tile";
 import { PaceBadge } from "@/components/pipeline/pace-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -247,6 +248,25 @@ export default async function DashboardPage() {
           Welcome back, {user.name.split(" ")[0]}
         </h1>
         <p className="text-muted-foreground text-sm">What needs a decision today.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile label="Open positions" value={overview.length} href="/positions" />
+        <StatTile
+          label="Active candidates"
+          value={overview.reduce((sum, p) => sum + p.active, 0)}
+          href="/candidates"
+        />
+        <StatTile
+          label={`Stuck ${PACE_THRESHOLDS.redFrom}+ days`}
+          value={overview.reduce((sum, p) => sum + p.stuck, 0)}
+          tone="warning"
+        />
+        {approves ? (
+          <StatTile label="Awaiting approval" value={approvals.length} href="/positions/approvals" />
+        ) : (
+          <StatTile label="Awaiting your feedback" value={queue.summary.awaiting} href="/queue" />
+        )}
       </div>
 
       {approves ? <ApprovalsSection approvals={approvals} /> : null}

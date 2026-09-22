@@ -72,10 +72,18 @@ export function escapeHtml(text: string) {
  * Plain text → HTML: a blank line separates paragraphs, a single newline is a
  * line break, and everything HR typed is escaped before it touches markup.
  */
-export function composeHtml(text: string, companyName = "Docket") {
-  const paragraphs = text
-    .replace(/\r\n?/g, "\n")
-    .trim()
+export type EmailBrand = {
+  logoUrl?: string;
+  careersUrl?: string;
+  /** Inbox preview line; defaults to the start of the message. */
+  preheader?: string;
+};
+
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+export function composeHtml(text: string, companyName = "Docket", brand: EmailBrand = {}) {
+  const normalized = text.replace(/\r\n?/g, "\n").trim();
+  const paragraphs = normalized
     .split(/\n{2,}/)
     .map(
       (paragraph) =>
@@ -84,6 +92,17 @@ export function composeHtml(text: string, companyName = "Docket") {
     .join("\n");
   const company = escapeHtml(companyName);
   const initial = escapeHtml(companyName.trim().charAt(0).toUpperCase() || "D");
+  const preheader = escapeHtml(
+    brand.preheader ?? normalized.split(/\n{2,}/)[1]?.replace(/\s+/g, " ").slice(0, 140) ?? "",
+  );
+
+  const mark = brand.logoUrl
+    ? `<img src="${escapeHtml(brand.logoUrl)}" width="32" height="32" alt="${initial}" style="display:block;width:32px;height:32px;border:0;border-radius:8px;background:#18181b;color:#ffffff;font-size:14px;font-weight:600;line-height:32px;text-align:center;" />`
+    : `<div style="width:32px;height:32px;background:#18181b;border-radius:8px;color:#ffffff;font-size:14px;font-weight:600;line-height:32px;text-align:center;">${initial}</div>`;
+
+  const careersLink = brand.careersUrl
+    ? `<a href="${escapeHtml(brand.careersUrl)}" style="color:#52525b;text-decoration:underline;text-underline-offset:3px;">View open roles</a>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -91,30 +110,35 @@ export function composeHtml(text: string, companyName = "Docket") {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <style>@media (max-width: 480px) { .px { padding-left: 22px !important; padding-right: 22px !important; } .outer { padding: 24px 12px !important; } }</style>
   </head>
-  <body style="margin:0;padding:0;background:#f6f6f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18181b;-webkit-font-smoothing:antialiased;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f6f7;">
+  <body style="margin:0;padding:0;background:#f4f4f5;font-family:${FONT};color:#18181b;-webkit-font-smoothing:antialiased;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preheader}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;">
       <tr>
-        <td align="center" style="padding:40px 16px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+        <td class="outer" align="center" style="padding:48px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:14px;">
             <tr>
-              <td style="padding:0 4px 20px 4px;">
+              <td class="px" style="padding:24px 36px;border-bottom:1px solid #f0f0f2;">
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td width="28" height="28" align="center" valign="middle" style="width:28px;height:28px;background:#18181b;border-radius:7px;color:#ffffff;font-size:13px;font-weight:600;line-height:28px;">${initial}</td>
-                    <td style="padding-left:10px;font-size:14px;font-weight:600;letter-spacing:-0.01em;color:#18181b;">${company} Hiring</td>
+                    <td valign="middle">${mark}</td>
+                    <td valign="middle" style="padding-left:12px;font-size:15px;font-weight:600;letter-spacing:-0.01em;color:#18181b;">${company} Hiring</td>
                   </tr>
                 </table>
               </td>
             </tr>
             <tr>
-              <td style="background:#ffffff;border:1px solid #e8e8eb;border-radius:12px;padding:36px 36px 20px 36px;font-size:15px;line-height:1.65;color:#27272a;">
+              <td class="px" style="padding:32px 36px 18px 36px;font-size:15px;line-height:1.7;color:#3f3f46;">
 ${paragraphs}
               </td>
             </tr>
+          </table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
             <tr>
-              <td style="padding:20px 4px 0 4px;font-size:12px;line-height:1.5;color:#8b8b93;">
-                Sent by the ${company} hiring team.
+              <td align="center" style="padding:24px 16px 0 16px;font-size:12px;line-height:1.6;color:#a1a1aa;">
+                Sent by the ${company} hiring team about your application.${careersLink ? `<br/>${careersLink}` : ""}
               </td>
             </tr>
           </table>

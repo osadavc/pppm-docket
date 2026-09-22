@@ -6,7 +6,7 @@ import { db, type Db } from "@/db/client";
 import { notifications } from "@/db/schema";
 import type { NotificationStatus, NotificationType } from "@/db/schema/enums";
 import { env } from "@/env";
-import { COMPANY_NAME } from "@/lib/company";
+import { COMPANY_NAME, EMAIL_BRAND } from "@/lib/company";
 import { composeHtml } from "./templates";
 import {
   logSimulatedEmail,
@@ -241,7 +241,7 @@ export async function dispatchNotification(
       to: plan.to,
       subject: claimed.subject,
       text: claimed.body,
-      html: composeHtml(claimed.body, COMPANY_NAME),
+      html: composeHtml(claimed.body, COMPANY_NAME, EMAIL_BRAND),
       idempotencyKey: idempotencyKeyFor(notificationId),
     },
   );

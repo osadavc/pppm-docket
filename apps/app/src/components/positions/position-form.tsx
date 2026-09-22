@@ -24,7 +24,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { DatePicker } from "@/components/app/date-picker";
 import { MarkdownEditor } from "@/components/app/markdown-editor";
+import { NumberInput } from "@/components/app/number-input";
 import { createDraftPosition, updatePosition } from "@/lib/actions/positions";
 import { EMPLOYMENT_TYPE_LABELS } from "@/lib/format";
 import {
@@ -153,11 +155,20 @@ export function PositionForm({
 
           <Field data-invalid={!!form.formState.errors.applicationDeadline}>
             <FieldLabel htmlFor="applicationDeadline">Application deadline</FieldLabel>
-            <Input
-              id="applicationDeadline"
-              type="date"
-              className="w-full sm:w-56"
-              {...form.register("applicationDeadline")}
+            <Controller
+              control={form.control}
+              name="applicationDeadline"
+              render={({ field, fieldState }) => (
+                <DatePicker
+                  id="applicationDeadline"
+                  className="w-full sm:w-64"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  invalid={fieldState.invalid}
+                  placeholder="No deadline"
+                />
+              )}
             />
             <FieldDescription>
               Optional while drafting. Applications close at the end of this day.
@@ -206,12 +217,24 @@ export function PositionForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field data-invalid={!!form.formState.errors.salaryMin}>
               <FieldLabel htmlFor="salaryMin">Salary from</FieldLabel>
-              <Input id="salaryMin" type="number" min={0} {...form.register("salaryMin")} />
+              <Controller
+                control={form.control}
+                name="salaryMin"
+                render={({ field }) => (
+                  <NumberInput id="salaryMin" placeholder="e.g. 250,000" value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                )}
+              />
               <FieldError errors={[form.formState.errors.salaryMin]} />
             </Field>
             <Field data-invalid={!!form.formState.errors.salaryMax}>
               <FieldLabel htmlFor="salaryMax">Salary to</FieldLabel>
-              <Input id="salaryMax" type="number" min={0} {...form.register("salaryMax")} />
+              <Controller
+                control={form.control}
+                name="salaryMax"
+                render={({ field }) => (
+                  <NumberInput id="salaryMax" placeholder="e.g. 400,000" value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                )}
+              />
               <FieldError errors={[form.formState.errors.salaryMax]} />
             </Field>
           </div>

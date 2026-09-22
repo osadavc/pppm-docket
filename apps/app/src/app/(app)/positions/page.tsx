@@ -133,7 +133,7 @@ export default async function PositionsPage({
                 <ChevronLeft /> Previous
               </Link>
             ) : (
-              <span><ChevronLeft /> Previous</span>
+              <><ChevronLeft /> Previous</>
             )}
           </Button>
           <Button
@@ -147,7 +147,7 @@ export default async function PositionsPage({
                 Next <ChevronRight />
               </Link>
             ) : (
-              <span>Next <ChevronRight /></span>
+              <>Next <ChevronRight /></>
             )}
           </Button>
         </div>

@@ -194,7 +194,7 @@ export default async function PositionCandidatesPage({
                 <ChevronLeft /> Previous
               </Link>
             ) : (
-              <span><ChevronLeft /> Previous</span>
+              <><ChevronLeft /> Previous</>
             )}
           </Button>
           <Button
@@ -208,7 +208,7 @@ export default async function PositionCandidatesPage({
                 Next <ChevronRight />
               </Link>
             ) : (
-              <span>Next <ChevronRight /></span>
+              <>Next <ChevronRight /></>
             )}
           </Button>
         </div>

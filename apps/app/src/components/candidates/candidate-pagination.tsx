@@ -36,9 +36,9 @@ export function CandidatePagination({
               <ChevronLeft /> Previous
             </Link>
           ) : (
-            <span>
+            <>
               <ChevronLeft /> Previous
-            </span>
+            </>
           )}
         </Button>
 
@@ -57,9 +57,9 @@ export function CandidatePagination({
               Next <ChevronRight />
             </Link>
           ) : (
-            <span>
+            <>
               Next <ChevronRight />
-            </span>
+            </>
           )}
         </Button>
       </div>

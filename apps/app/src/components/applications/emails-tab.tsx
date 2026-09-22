@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/collapsible";
 import { ComposeEmailDialog } from "@/components/applications/compose-email-dialog";
 import { retryNotification } from "@/lib/actions/notifications";
-import { COMPANY_NAME } from "@/lib/company";
+import { COMPANY_NAME, EMAIL_BRAND } from "@/lib/company";
 import { formatDateTime } from "@/lib/format";
 import { deliveryBadgeVariant, deliveryLabel } from "@/lib/notifications/labels";
 import { composeHtml } from "@/lib/notifications/templates";
@@ -116,7 +116,7 @@ function EmailRow({ email, canRetry }: { email: ApplicationEmail; canRetry: bool
           <iframe
             title={`Preview of “${email.subject}”`}
             sandbox=""
-            srcDoc={composeHtml(email.body, COMPANY_NAME)}
+            srcDoc={composeHtml(email.body, COMPANY_NAME, EMAIL_BRAND)}
             className="bg-background mt-2 h-96 w-full rounded-md border"
           />
         </CollapsibleContent>
