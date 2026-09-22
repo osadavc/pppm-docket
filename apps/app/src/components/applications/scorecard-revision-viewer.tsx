@@ -1,4 +1,5 @@
 import { ChevronDown, History } from "lucide-react";
+import { FeedbackHistoryDialog } from "@/components/applications/feedback-history-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -184,17 +185,26 @@ export function ScorecardRevisionViewer({
                 className="flex flex-col gap-3"
                 aria-labelledby={`scorecard-${group.scorecardId}`}
               >
-                <div>
-                  <h3
-                    id={`scorecard-${group.scorecardId}`}
-                    className="font-medium"
-                  >
-                    {group.scorecardAuthorName}
-                  </h3>
-                  <p className="text-muted-foreground text-sm">
-                    {group.stageName} · {group.revisions.length}{" "}
-                    {group.revisions.length === 1 ? "snapshot" : "snapshots"}
-                  </p>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3
+                      id={`scorecard-${group.scorecardId}`}
+                      className="font-medium"
+                    >
+                      {group.scorecardAuthorName}
+                    </h3>
+                    <p className="text-muted-foreground text-sm">
+                      {group.stageName} · {group.revisions.length}{" "}
+                      {group.revisions.length === 1 ? "snapshot" : "snapshots"}
+                    </p>
+                  </div>
+                  {group.revisions.length > 1 ? (
+                    <FeedbackHistoryDialog
+                      authorName={group.scorecardAuthorName}
+                      stageName={group.stageName}
+                      revisions={group.revisions}
+                    />
+                  ) : null}
                 </div>
                 <ol className="flex flex-col gap-2">
                   {group.revisions.map((revision, index) => (

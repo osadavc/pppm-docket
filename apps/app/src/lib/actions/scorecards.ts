@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
 import {
@@ -16,7 +16,10 @@ import {
 import { logActivity } from "@/lib/activity/log";
 import { requireUser } from "@/lib/auth/guards";
 import { calculateWeightedScore } from "@/lib/domain/scorecard";
-import { getFeedbackContext } from "@/lib/queries/feedback";
+import {
+  getFeedbackContext,
+  getScorecardEditContext,
+} from "@/lib/queries/feedback";
 import {
   recommendationValues,
   scorecardSubmissionSchema,
@@ -99,10 +102,22 @@ export async function saveScorecard(
     return fail("That application is not valid.");
 
   const applicationId = applicationIdResult.data;
-  const context = await getFeedbackContext(actor.id, applicationId);
+  const isRevisionIntent = formData.get("intent") === "revise";
+  const scorecardIdResult = z.uuid().safeParse(formData.get("scorecardId"));
+  const context = isRevisionIntent
+    ? scorecardIdResult.success
+      ? await getScorecardEditContext(
+          actor,
+          applicationId,
+          scorecardIdResult.data,
+        )
+      : null
+    : await getFeedbackContext(actor.id, applicationId);
   if (!context) {
     return fail(
-      "This application is no longer active at a stage assigned to you.",
+      isRevisionIntent
+        ? "This submitted feedback is not available for editing."
+        : "This application is no longer active at a stage assigned to you.",
     );
   }
   const recommendationRaw = formData.get("recommendation");
@@ -193,56 +208,96 @@ export async function saveScorecard(
     // one PostgreSQL transaction. Any failed rating insert rolls back the
     // scorecard insert/update and the preceding rating deletion with it.
     outcome = await db.transaction(async (tx) => {
-      // Lock the application and re-check every mutable authorization fact in
-      // the write transaction. A page rendered while the assignment was valid
-      // cannot submit after the candidate moves, the application closes, or
-      // the interviewer is removed/deactivated.
-      const [eligible] = await tx
-        .select({ applicationStageId: applicationStages.id })
-        .from(applications)
-        .innerJoin(
-          applicationStages,
-          and(
-            eq(applicationStages.applicationId, applications.id),
-            eq(applicationStages.positionStageId, applications.currentStageId),
-          ),
-        )
-        .innerJoin(
-          positionStageInterviewers,
-          and(
-            eq(
-              positionStageInterviewers.positionStageId,
-              applications.currentStageId,
-            ),
-            eq(positionStageInterviewers.userId, actor.id),
-          ),
-        )
-        .innerJoin(
-          user,
-          and(
-            eq(user.id, positionStageInterviewers.userId),
-            eq(user.id, actor.id),
-            eq(user.isActive, true),
-          ),
-        )
-        .where(
-          and(
-            eq(applications.id, applicationId),
-            eq(applications.status, "active"),
-            eq(applications.currentStageId, context.stageId),
-            eq(applicationStages.id, context.applicationStageId),
-            eq(applicationStages.status, "in_progress"),
-          ),
-        )
-        .limit(1)
-        .for("update", {
-          of: [
-            applications,
-            applicationStages,
-            positionStageInterviewers,
-            user,
-          ],
-        });
+      // A new submission must still be for the active, current assigned
+      // stage. An edit deliberately follows the authored scorecard instead:
+      // its author may correct it while the application is active or on hold,
+      // even after the candidate has moved on.
+      const [eligible] = isRevision
+        ? await tx
+            .select({ applicationStageId: applicationStages.id })
+            .from(applications)
+            .innerJoin(
+              applicationStages,
+              and(
+                eq(applicationStages.applicationId, applications.id),
+                eq(applicationStages.id, context.applicationStageId),
+              ),
+            )
+            .innerJoin(
+              scorecards,
+              and(
+                eq(scorecards.id, context.scorecard!.id),
+                eq(scorecards.applicationId, applications.id),
+                eq(scorecards.applicationStageId, applicationStages.id),
+                eq(scorecards.authorId, actor.id),
+                eq(scorecards.status, "submitted"),
+              ),
+            )
+            .innerJoin(
+              user,
+              and(eq(user.id, scorecards.authorId), eq(user.isActive, true)),
+            )
+            .where(
+              and(
+                eq(applications.id, applicationId),
+                inArray(applications.status, ["active", "on_hold"]),
+                eq(user.id, actor.id),
+                eq(user.isActive, true),
+              ),
+            )
+            .limit(1)
+            .for("update", {
+              of: [applications, applicationStages, scorecards, user],
+            })
+        : await tx
+            .select({ applicationStageId: applicationStages.id })
+            .from(applications)
+            .innerJoin(
+              applicationStages,
+              and(
+                eq(applicationStages.applicationId, applications.id),
+                eq(
+                  applicationStages.positionStageId,
+                  applications.currentStageId,
+                ),
+              ),
+            )
+            .innerJoin(
+              positionStageInterviewers,
+              and(
+                eq(
+                  positionStageInterviewers.positionStageId,
+                  applications.currentStageId,
+                ),
+                eq(positionStageInterviewers.userId, actor.id),
+              ),
+            )
+            .innerJoin(
+              user,
+              and(
+                eq(user.id, positionStageInterviewers.userId),
+                eq(user.id, actor.id),
+                eq(user.isActive, true),
+              ),
+            )
+            .where(
+              and(
+                eq(applications.id, applicationId),
+                eq(applications.status, "active"),
+                eq(applications.currentStageId, context.stageId),
+                eq(applicationStages.id, context.applicationStageId),
+                eq(applicationStages.status, "in_progress"),
+              ),
+            )
+            .limit(1)
+            .for("update", {
+              of: [
+                applications,
+                applicationStages,
+                positionStageInterviewers,
+                user,
+              ],
+            });
 
       if (!eligible) throw new ScorecardNotEligibleError();
 
@@ -276,6 +331,7 @@ export async function saveScorecard(
               concerns: scorecards.concerns,
               notes: scorecards.notes,
               submittedAt: scorecards.submittedAt,
+              revisionCount: scorecards.revisionCount,
             })
             .from(scorecards)
             .where(
@@ -309,7 +365,10 @@ export async function saveScorecard(
             .limit(1);
 
           if (!latestRevision) throw new ScorecardRevisionUnavailableError();
-          if (latestRevision.revisionNumber !== input.baseRevision) {
+          if (
+            latestRevision.revisionNumber !== input.baseRevision ||
+            existing.revisionCount !== input.baseRevision
+          ) {
             throw new ScorecardRevisionConflictError();
           }
 
@@ -330,9 +389,11 @@ export async function saveScorecard(
             };
           }
 
+          revisionNumber = latestRevision.revisionNumber + 1;
+
           const [updated] = await tx
             .update(scorecards)
-            .set(scorecardValues)
+            .set({ ...scorecardValues, revisionCount: revisionNumber })
             .where(
               and(
                 eq(scorecards.id, scorecardId),
@@ -340,12 +401,11 @@ export async function saveScorecard(
                 eq(scorecards.applicationStageId, eligible.applicationStageId),
                 eq(scorecards.authorId, actor.id),
                 eq(scorecards.status, "submitted"),
+                eq(scorecards.revisionCount, input.baseRevision),
               ),
             )
             .returning({ id: scorecards.id });
-          if (!updated) throw new ScorecardRevisionUnavailableError();
-
-          revisionNumber = latestRevision.revisionNumber + 1;
+          if (!updated) throw new ScorecardRevisionConflictError();
 
           revision = {
             previous: {
@@ -370,7 +430,7 @@ export async function saveScorecard(
         } else {
           const [updated] = await tx
             .update(scorecards)
-            .set(scorecardValues)
+            .set({ ...scorecardValues, revisionCount: 1 })
             .where(
               and(
                 eq(scorecards.id, scorecardId),
@@ -393,6 +453,7 @@ export async function saveScorecard(
             applicationId,
             applicationStageId: eligible.applicationStageId,
             authorId: actor.id,
+            revisionCount: 1,
             ...scorecardValues,
           })
           .onConflictDoNothing({
@@ -407,7 +468,7 @@ export async function saveScorecard(
           // Only a legacy draft may be converted; a submitted row is refused.
           const [updated] = await tx
             .update(scorecards)
-            .set(scorecardValues)
+            .set({ ...scorecardValues, revisionCount: 1 })
             .where(
               and(
                 eq(scorecards.applicationId, applicationId),
@@ -472,7 +533,7 @@ export async function saveScorecard(
       if (revision) {
         await logActivity(tx, {
           actorId: actor.id,
-          action: "scorecard.revised",
+          action: "scorecard.updated",
           entityType: "scorecard",
           entityId: scorecardId,
           applicationId,
@@ -525,7 +586,7 @@ export async function saveScorecard(
     }
     if (error instanceof ScorecardRevisionConflictError) {
       return fail(
-        "This feedback was revised in another session. Refresh before editing the latest version.",
+        "This feedback was changed by another session — reload and try again.",
       );
     }
     throw error;

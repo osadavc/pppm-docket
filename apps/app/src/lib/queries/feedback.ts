@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   applications,
@@ -15,6 +15,8 @@ import {
   scorecards,
 } from "@/db/schema";
 import type { Recommendation } from "@/db/schema/enums";
+import type { SessionUser } from "@/lib/auth/guards";
+import { canViewApplication } from "./activity";
 
 export type FeedbackCriterion = {
   id: string;
@@ -180,6 +182,118 @@ export async function getFeedbackContext(
           revisionNumber: latestRevision?.revisionNumber ?? 0,
         }
       : null,
+    criteria: criteriaRows.map((criterion) => ({
+      ...criterion,
+      rating: criterion.rating ?? null,
+      comment: criterion.comment ?? "",
+    })),
+  };
+}
+
+/**
+ * Load one submitted scorecard for its author to edit.
+ *
+ * Unlike the submission context, this deliberately works for a scorecard at
+ * an earlier stage after the candidate moves on. The author still needs
+ * application-level access, and terminal applications are never editable.
+ */
+export async function getScorecardEditContext(
+  viewer: SessionUser,
+  applicationId: string,
+  scorecardId: string,
+): Promise<FeedbackContext | null> {
+  if (!(await canViewApplication(viewer, applicationId))) return null;
+
+  const [row] = await db
+    .select({
+      applicationId: applications.id,
+      applicationStageId: applicationStages.id,
+      candidateName: candidates.fullName,
+      candidateTitle: candidates.currentTitle,
+      positionId: positions.id,
+      positionTitle: positions.title,
+      stageId: positionStages.id,
+      stageName: positionStages.name,
+      stageDescription: positionStages.description,
+      scorecardId: scorecards.id,
+      recommendation: scorecards.recommendation,
+      strengths: scorecards.strengths,
+      concerns: scorecards.concerns,
+      notes: scorecards.notes,
+      submittedAt: scorecards.submittedAt,
+      revisionCount: scorecards.revisionCount,
+    })
+    .from(scorecards)
+    .innerJoin(applications, eq(applications.id, scorecards.applicationId))
+    .innerJoin(candidates, eq(candidates.id, applications.candidateId))
+    .innerJoin(positions, eq(positions.id, applications.positionId))
+    .innerJoin(
+      applicationStages,
+      eq(applicationStages.id, scorecards.applicationStageId),
+    )
+    .innerJoin(
+      positionStages,
+      eq(positionStages.id, applicationStages.positionStageId),
+    )
+    .where(
+      and(
+        eq(scorecards.id, scorecardId),
+        eq(scorecards.applicationId, applicationId),
+        eq(scorecards.authorId, viewer.id),
+        eq(scorecards.status, "submitted"),
+        inArray(applications.status, ["active", "on_hold"]),
+      ),
+    )
+    .limit(1);
+
+  if (!row) return null;
+
+  const criteriaRows = await db
+    .select({
+      id: scorecardCriteria.id,
+      label: scorecardCriteria.label,
+      description: scorecardCriteria.description,
+      weight: scorecardCriteria.weight,
+      orderIndex: scorecardCriteria.orderIndex,
+      rating: scorecardRatings.rating,
+      comment: scorecardRatings.comment,
+    })
+    .from(scorecardCriteria)
+    .leftJoin(
+      scorecardRatings,
+      and(
+        eq(scorecardRatings.criterionId, scorecardCriteria.id),
+        eq(scorecardRatings.scorecardId, row.scorecardId),
+      ),
+    )
+    .where(
+      and(
+        eq(scorecardCriteria.positionStageId, row.stageId),
+        eq(scorecardCriteria.isActive, true),
+      ),
+    )
+    .orderBy(asc(scorecardCriteria.orderIndex));
+
+  return {
+    applicationId: row.applicationId,
+    applicationStageId: row.applicationStageId,
+    candidateName: row.candidateName,
+    candidateTitle: row.candidateTitle,
+    positionId: row.positionId,
+    positionTitle: row.positionTitle,
+    stageId: row.stageId,
+    stageName: row.stageName,
+    stageDescription: row.stageDescription,
+    scorecard: {
+      id: row.scorecardId,
+      status: "submitted",
+      recommendation: row.recommendation,
+      strengths: row.strengths ?? "",
+      concerns: row.concerns ?? "",
+      notes: row.notes ?? "",
+      submittedAt: row.submittedAt,
+      revisionNumber: row.revisionCount,
+    },
     criteria: criteriaRows.map((criterion) => ({
       ...criterion,
       rating: criterion.rating ?? null,

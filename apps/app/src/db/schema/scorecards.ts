@@ -35,6 +35,8 @@ export const scorecards = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
     status: scorecardStatus("status").default("draft").notNull(),
+    /** Monotonic revision number for optimistic edits and cheap history labels. */
+    revisionCount: integer("revision_count").default(0).notNull(),
     /** NULL while draft; required to submit. */
     recommendation: recommendation("recommendation"),
     /**

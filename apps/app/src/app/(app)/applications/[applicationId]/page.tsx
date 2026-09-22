@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { FeedbackList } from "@/components/applications/feedback-list";
 import { ScorecardRevisionViewer } from "@/components/applications/scorecard-revision-viewer";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,6 +21,7 @@ import {
   getApplicationTimeline,
 } from "@/lib/queries/activity";
 import { getApplicationScorecardRevisions } from "@/lib/queries/scorecard-revisions";
+import { listScorecardsForApplication } from "@/lib/queries/scorecards";
 
 export const metadata: Metadata = { title: "Application · Docket" };
 
@@ -36,9 +38,10 @@ export default async function ApplicationPage({
   const header = await getApplicationHeader(applicationId);
   if (!header) notFound();
 
-  const [entries, revisionGroups] = await Promise.all([
+  const [entries, revisionGroups, feedback] = await Promise.all([
     getApplicationTimeline(applicationId, viewer),
     getApplicationScorecardRevisions(applicationId, viewer),
+    listScorecardsForApplication(applicationId, viewer),
   ]);
   const seesEverything = can(viewer.role, "scorecard:read-all");
 
@@ -50,7 +53,10 @@ export default async function ApplicationPage({
         </h1>
         <p className="text-muted-foreground text-sm">
           {can(viewer.role, "position:view") ? (
-            <Link href={`/positions/${header.positionId}`} className="hover:underline">
+            <Link
+              href={`/positions/${header.positionId}`}
+              className="hover:underline"
+            >
               {header.positionTitle}
             </Link>
           ) : (
@@ -84,6 +90,13 @@ export default async function ApplicationPage({
           <ActivityTimeline entries={entries} />
         </CardContent>
       </Card>
+
+      <FeedbackList
+        feedback={feedback}
+        applicationId={applicationId}
+        viewerId={viewer.id}
+        editable={header.status === "active" || header.status === "on_hold"}
+      />
 
       <ScorecardRevisionViewer groups={revisionGroups} />
     </>
