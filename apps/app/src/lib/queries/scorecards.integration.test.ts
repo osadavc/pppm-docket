@@ -17,6 +17,7 @@ import {
 import type { SessionUser } from "@/lib/auth/guards";
 import { isUserRole } from "@/lib/auth/roles";
 import { listScorecardsForApplication } from "./scorecards";
+import { createUnassignedInterviewer } from "./test-interviewer";
 
 test(
   "application scorecards keep peer feedback independent by application-stage",
@@ -34,10 +35,9 @@ test(
       .where(
         inArray(user.email, [
           "hr@example.com",
-          "manager@example.com",
-          "eng.lead@example.com",
-          "dev1@example.com",
-          "ops.lead@example.com",
+          "management@example.com",
+          "interviewone@example.com",
+          "interviewtwo@example.com",
         ]),
       );
     const seededUser = (email: string) =>
@@ -51,10 +51,10 @@ test(
     };
 
     const hr = asViewer("hr@example.com");
-    const manager = asViewer("manager@example.com");
-    const interviewer = asViewer("eng.lead@example.com");
-    const peer = asViewer("dev1@example.com");
-    const unassigned = asViewer("ops.lead@example.com");
+    const manager = asViewer("management@example.com");
+    const interviewer = asViewer("interviewone@example.com");
+    const peer = asViewer("interviewtwo@example.com");
+    const { remove: removeUnassigned, ...unassigned } = await createUnassignedInterviewer();
     const marker = crypto.randomUUID();
     const now = new Date();
 
@@ -309,6 +309,7 @@ test(
       if (candidateId) {
         await db.delete(candidates).where(eq(candidates.id, candidateId));
       }
+      await removeUnassigned();
     }
   },
 );

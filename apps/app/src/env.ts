@@ -23,9 +23,12 @@ const schema = z.object({
   DATABASE_URL: postgresUrl("DATABASE_URL"),
   DIRECT_URL: postgresUrl("DIRECT_URL"),
 
-  // Supabase Storage (CV uploads). The service role key is server-only.
-  NEXT_PUBLIC_SUPABASE_URL: z.url(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  // CV storage. "supabase" uses Supabase Storage (the service role key is
+  // server-only); "local" writes to LOCAL_STORAGE_DIR on this machine.
+  STORAGE_DRIVER: z.enum(["supabase", "local"]).default("supabase"),
+  LOCAL_STORAGE_DIR: z.string().default(".storage"),
+  NEXT_PUBLIC_SUPABASE_URL: z.url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().default(""),
   SUPABASE_STORAGE_BUCKET: z.string().default("cv"),
 
   // Auth
@@ -43,15 +46,22 @@ const schema = z.object({
     .default("false")
     .transform((v) => v === "true"),
   DEMO_EMAIL_REDIRECT: z.string().optional().default(""),
-
-  // Seed
-  SEED_PASSWORD: z.string().default("Password123!"),
+}).superRefine((v, ctx) => {
+  if (v.STORAGE_DRIVER === "supabase" && !v.NEXT_PUBLIC_SUPABASE_URL) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["NEXT_PUBLIC_SUPABASE_URL"],
+      message: "NEXT_PUBLIC_SUPABASE_URL is required unless STORAGE_DRIVER=local",
+    });
+  }
 });
 
 const parsed = schema.safeParse({
   DATABASE_URL: process.env.DATABASE_URL,
   DIRECT_URL: process.env.DIRECT_URL,
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  STORAGE_DRIVER: process.env.STORAGE_DRIVER,
+  LOCAL_STORAGE_DIR: process.env.LOCAL_STORAGE_DIR,
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || undefined,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_STORAGE_BUCKET: process.env.SUPABASE_STORAGE_BUCKET,
   BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
@@ -62,7 +72,6 @@ const parsed = schema.safeParse({
   NEXT_PUBLIC_COMPANY_NAME: process.env.NEXT_PUBLIC_COMPANY_NAME,
   NOTIFICATIONS_ENABLED: process.env.NOTIFICATIONS_ENABLED,
   DEMO_EMAIL_REDIRECT: process.env.DEMO_EMAIL_REDIRECT,
-  SEED_PASSWORD: process.env.SEED_PASSWORD,
 });
 
 if (!parsed.success) {

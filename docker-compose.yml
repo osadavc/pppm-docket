@@ -1,0 +1,25 @@
+# Local Postgres for development — replaces the Supabase database.
+# Started automatically by `bun run local`; the host port is picked by that
+# script (POSTGRES_PORT) so it never collides with another Postgres.
+name: docket
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: docket
+      POSTGRES_PASSWORD: docket
+      POSTGRES_DB: docket
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - docket-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docket -d docket"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  docket-pgdata:

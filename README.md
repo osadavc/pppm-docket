@@ -233,11 +233,13 @@ environment budget to watch, not a universal threshold.
   (half with simulated emails), plus pending, draft (sent back once) and
   filled positions. All people are fictional (`@example.com`).
 
-  | Role | Email | Password |
-  | --- | --- | --- |
-  | HR | hr@example.com | `SEED_PASSWORD` (default `Password123!`) |
-  | Management | manager@example.com | same |
-  | Interviewer | eng.lead@example.com, dev1@example.com, ops.lead@example.com | same |
+  Every account's password is its own email address.
+
+  | Role | Email / password |
+  | --- | --- |
+  | HR | hr@example.com |
+  | Management | management@example.com |
+  | Interviewer | interviewone@example.com, interviewtwo@example.com |
 
 ### Test scripts
 

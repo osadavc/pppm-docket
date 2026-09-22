@@ -18,6 +18,7 @@ import { getMyQueue, QUEUE_PAGE_SIZE } from "./queue";
 import { getAdvanceContext } from "./applications";
 import { getApplicationTimeline } from "./activity";
 import { interviewerCanViewApplication } from "./stage-interviewers";
+import { createUnassignedInterviewer } from "./test-interviewer";
 
 test(
   "assigned queue is bounded, gate-aware, and access stays current-stage-or-author",
@@ -29,23 +30,23 @@ test(
       .where(
         inArray(user.email, [
           "hr@example.com",
-          "eng.lead@example.com",
-          "dev1@example.com",
-          "ops.lead@example.com",
+          "interviewone@example.com",
+          "interviewtwo@example.com",
         ]),
       );
     const userId = (email: string) =>
       seededUsers.find((row) => row.email === email)?.id;
     const hrId = userId("hr@example.com");
-    const viewerId = userId("eng.lead@example.com");
-    const panelPeerId = userId("dev1@example.com");
-    const unassignedId = userId("ops.lead@example.com");
+    const viewerId = userId("interviewone@example.com");
+    const panelPeerId = userId("interviewtwo@example.com");
 
-    if (!hrId || !viewerId || !panelPeerId || !unassignedId) {
+    if (!hrId || !viewerId || !panelPeerId) {
       throw new Error(
         "Run `bun run db:seed` before the queue integration test.",
       );
     }
+    const unassigned = await createUnassignedInterviewer();
+    const unassignedId = unassigned.id;
 
     const marker = crypto.randomUUID();
     const now = new Date();
@@ -313,7 +314,7 @@ test(
       const timeline = await getApplicationTimeline(gateApplication.id, {
         id: viewerId,
         name: "Queue integration viewer",
-        email: "eng.lead@example.com",
+        email: "interviewone@example.com",
         role: "interviewer",
         isActive: true,
       });
@@ -364,6 +365,7 @@ test(
       if (candidateIds.length > 0) {
         await db.delete(candidates).where(inArray(candidates.id, candidateIds));
       }
+      await unassigned.remove();
     }
   },
 );

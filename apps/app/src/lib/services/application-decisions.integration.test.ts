@@ -37,14 +37,14 @@ test(
       .where(
         inArray(user.email, [
           "hr@example.com",
-          "eng.lead@example.com",
-          "dev1@example.com",
+          "interviewone@example.com",
+          "interviewtwo@example.com",
         ]),
       );
     const by = (email: string) => seeded.find((row) => row.email === email);
     const hr = by("hr@example.com");
-    const lead = by("eng.lead@example.com");
-    const dev = by("dev1@example.com");
+    const lead = by("interviewone@example.com");
+    const dev = by("interviewtwo@example.com");
     if (!hr || !lead || !dev) {
       throw new Error("Run `bun run db:seed` before the decisions integration test.");
     }

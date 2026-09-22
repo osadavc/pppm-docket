@@ -37,10 +37,9 @@ type SeedUser = { email: string; name: string; role: UserRole; jobTitle: string;
 
 export const SEED_USERS: SeedUser[] = [
   { email: "hr@example.com", name: "Nadia Perera", role: "hr", jobTitle: "Talent Acquisition Lead", department: "People" },
-  { email: "manager@example.com", name: "Rohan Silva", role: "management", jobTitle: "Head of People", department: "People" },
-  { email: "eng.lead@example.com", name: "Dilhan Fernando", role: "interviewer", jobTitle: "Engineering Lead", department: "Engineering" },
-  { email: "dev1@example.com", name: "Sasha Wick", role: "interviewer", jobTitle: "Senior Engineer", department: "Engineering" },
-  { email: "ops.lead@example.com", name: "Maya Gomez", role: "interviewer", jobTitle: "Operations Manager", department: "Operations" },
+  { email: "management@example.com", name: "Rohan Silva", role: "management", jobTitle: "Head of People", department: "People" },
+  { email: "interviewone@example.com", name: "Dilhan Fernando", role: "interviewer", jobTitle: "Engineering Lead", department: "Engineering" },
+  { email: "interviewtwo@example.com", name: "Sasha Wick", role: "interviewer", jobTitle: "Senior Engineer", department: "Engineering" },
 ];
 
 /** FK-safe truncate order (children first). */
@@ -82,7 +81,8 @@ async function seedUsers() {
       issuer: createLocalAccountIssuer("credential"),
       accountId: created.id,
       userId: created.id,
-      password: await ctx.password.hash(env.SEED_PASSWORD),
+      // Demo convenience: every seeded account signs in with its own email as the password.
+      password: await ctx.password.hash(u.email),
     });
     ids.set(u.email, created.id);
     console.log(`  + ${u.email} (${u.role})`);
@@ -90,7 +90,7 @@ async function seedUsers() {
   return ids;
 }
 
-type Staff = Record<"hr" | "manager" | "engLead" | "dev1" | "opsLead", { id: string; name: string; email: string }>;
+type Staff = Record<"hr" | "manager" | "engLead" | "dev1", { id: string; name: string; email: string }>;
 
 function sessionFor(s: { id: string; name: string; email: string }, role: UserRole): SessionUser {
   return { id: s.id, name: s.name, email: s.email, role, isActive: true };
@@ -391,7 +391,7 @@ async function seedScenario(staff: Staff) {
   // 2. Awaiting approval.
   const pending = await createPosition(staff, {
     title: "Operations Coordinator", department: "Operations", location: "Colombo", description: "Keep the office, vendors and onboarding running like clockwork.",
-    requirements: "2+ years in operations or office management.", openings: 1, status: "pending_approval", hiringManagerId: staff.opsLead.id,
+    requirements: "2+ years in operations or office management.", openings: 1, status: "pending_approval", hiringManagerId: staff.dev1.id,
     applicationDeadline: daysAgo(-30), submittedById: staff.hr.id, submittedAt: daysAgo(2), createdAt: daysAgo(5),
   });
   await approvalTrail(staff, pending, daysAgo(2), null, false, null);
@@ -407,7 +407,7 @@ async function seedScenario(staff: Staff) {
   // 4. Filled, with measurable time to fill.
   const filled = await createPosition(staff, {
     title: "Customer Support Lead", department: "Support", location: "Colombo", description: "Lead a team of six support specialists.",
-    openings: 1, status: "open", hiringManagerId: staff.opsLead.id, applicationDeadline: daysAgo(20), submittedById: staff.hr.id, submittedAt: daysAgo(62),
+    openings: 1, status: "open", hiringManagerId: staff.dev1.id, applicationDeadline: daysAgo(20), submittedById: staff.hr.id, submittedAt: daysAgo(62),
     lastReviewDecision: "approved", reviewedById: staff.manager.id, reviewedAt: daysAgo(61), openedAt: daysAgo(60), createdAt: daysAgo(65),
   });
   await approvalTrail(staff, filled, daysAgo(62), daysAgo(61), true, null);
@@ -448,16 +448,16 @@ async function main() {
     return { id: ids.get(email)!, name: u.name, email };
   };
   const staff: Staff = {
-    hr: by("hr@example.com"), manager: by("manager@example.com"), engLead: by("eng.lead@example.com"),
-    dev1: by("dev1@example.com"), opsLead: by("ops.lead@example.com"),
+    hr: by("hr@example.com"), manager: by("management@example.com"),
+    engLead: by("interviewone@example.com"), dev1: by("interviewtwo@example.com"),
   };
 
   console.log("→ seeding hiring scenario");
   await seedScenario(staff);
 
-  console.log("\nDemo accounts (password: %s)", env.SEED_PASSWORD);
+  console.log("\nDemo accounts (password = email)");
   for (const u of SEED_USERS) console.log(`  ${u.role.padEnd(11)} ${u.email.padEnd(24)} ${u.name}`);
-  console.log("\nStart at http://localhost:3000/sign-in");
+  console.log(`\nStart at ${env.NEXT_PUBLIC_APP_URL}/sign-in`);
 }
 
 await main();

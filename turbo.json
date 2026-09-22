@@ -14,7 +14,8 @@
     "EMAIL_FROM",
     "NOTIFICATIONS_ENABLED",
     "DEMO_EMAIL_REDIRECT",
-    "SEED_PASSWORD"
+    "STORAGE_DRIVER",
+    "LOCAL_STORAGE_DIR"
   ],
   "tasks": {
     "build": {

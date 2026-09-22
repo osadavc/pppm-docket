@@ -43,3 +43,6 @@ next-env.d.ts
 # env files (can opt-in for committing if needed)
 !.env.example
 /test-results/
+
+# local CV storage (STORAGE_DRIVER=local)
+/.storage
