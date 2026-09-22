@@ -27,8 +27,14 @@ import { addCandidate, lookupCandidateByEmail } from "@/lib/actions/candidates";
 import { ExistingCandidateNotice } from "@/components/candidates/existing-candidate-notice";
 import type { ExistingCandidate } from "@/lib/queries/candidates";
 import { CANDIDATE_SOURCE_LABELS } from "@/lib/validation/candidate";
+import { formatDate } from "@/lib/format";
 
-type OpenPosition = { id: string; title: string; department: string };
+type OpenPosition = {
+  id: string;
+  title: string;
+  department: string;
+  applicationDeadline: Date | null;
+};
 
 export function CandidateForm({ positions }: { positions: OpenPosition[] }) {
   const router = useRouter();
@@ -53,6 +59,15 @@ export function CandidateForm({ positions }: { positions: OpenPosition[] }) {
 
   const err = (name: string) =>
     fieldErrors[name]?.[0] ? [{ message: fieldErrors[name]![0]! }] : [];
+
+  // HR may still add someone after the public window closed — a late referral
+  // is their call — but they should know they are doing it, and the record
+  // will say so.
+  const selectedPosition = positions.find((p) => p.id === positionId);
+  const [openedAt] = useState(() => Date.now());
+  const pastDeadline =
+    selectedPosition?.applicationDeadline != null &&
+    selectedPosition.applicationDeadline.getTime() <= openedAt;
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -182,6 +197,17 @@ export function CandidateForm({ positions }: { positions: OpenPosition[] }) {
             </Select>
             <FieldError errors={err("positionId")} />
           </Field>
+
+          {pastDeadline ? (
+            <Alert>
+              <AlertDescription>
+                The public application deadline for this position (
+                {formatDate(selectedPosition!.applicationDeadline)}) has passed.
+                You can still add this candidate; their history will note that
+                intake happened after the deadline.
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
           <Field>
             <FieldLabel htmlFor="source">How they reached us</FieldLabel>

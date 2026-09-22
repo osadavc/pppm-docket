@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
+import { Download, ExternalLink, UserX } from "lucide-react";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { ClickToCopy } from "@/components/app/click-to-copy";
 import { AdvanceButton } from "@/components/applications/advance-button";
+import {
+  ApplicationTabs,
+  parseTab,
+  type ApplicationTab,
+} from "@/components/applications/application-tabs";
 import { EmailsTab } from "@/components/applications/emails-tab";
 import { FeedbackList } from "@/components/applications/feedback-list";
 import { FlowOverrideMenu } from "@/components/applications/flow-override-menu";
@@ -10,7 +17,11 @@ import { GatePanel } from "@/components/applications/gate-panel";
 import { HireDialog } from "@/components/applications/hire-dialog";
 import { RejectDialog } from "@/components/applications/reject-dialog";
 import { ScorecardRevisionViewer } from "@/components/applications/scorecard-revision-viewer";
+import { StageStepper } from "@/components/applications/stage-stepper";
+import { PaceBadge } from "@/components/pipeline/pace-badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -20,25 +31,116 @@ import {
 } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/permissions";
+import { paceFor } from "@/lib/domain/pace";
 import { formatDate } from "@/lib/format";
 import {
   canViewApplication,
   getApplicationHeader,
+  getApplicationStepper,
   getApplicationTimeline,
+  type ApplicationHeader,
 } from "@/lib/queries/activity";
 import { getAdvanceContext } from "@/lib/queries/applications";
-import { listNotificationsForApplication } from "@/lib/queries/notifications";
+import {
+  countNotificationsForApplication,
+  listNotificationsForApplication,
+} from "@/lib/queries/notifications";
 import { getFillSummary } from "@/lib/queries/positions";
 import { getApplicationScorecardRevisions } from "@/lib/queries/scorecard-revisions";
 import { listScorecardsForApplication } from "@/lib/queries/scorecards";
+import { REJECTION_REASON_LABELS } from "@/lib/validation/application";
+import { CANDIDATE_SOURCE_LABELS } from "@/lib/validation/candidate";
+import { APPLICATION_STATUS_LABELS } from "@/lib/validation/candidate-search";
 
 export const metadata: Metadata = { title: "Application · Docket" };
 
+function DetailsTab({
+  header,
+  seesEverything,
+}: {
+  header: ApplicationHeader;
+  seesEverything: boolean;
+}) {
+  const rows: Array<[string, React.ReactNode]> = [
+    ["Email", <ClickToCopy key="email" value={header.candidateEmail} label="Email" />],
+    [
+      "Phone",
+      header.candidatePhone ? (
+        <ClickToCopy value={header.candidatePhone} label="Phone" />
+      ) : (
+        "—"
+      ),
+    ],
+    ["Location", header.candidateLocation || "—"],
+    ["Current title", header.currentTitle || "—"],
+    ["Company", header.currentCompany || "—"],
+    [
+      "Source",
+      CANDIDATE_SOURCE_LABELS[header.source as keyof typeof CANDIDATE_SOURCE_LABELS] ??
+        header.source,
+    ],
+    ["Applied", formatDate(header.appliedAt)],
+    [
+      "Salary expectation",
+      seesEverything ? header.salaryExpectation || "—" : (
+        <span className="text-muted-foreground">Restricted</span>
+      ),
+    ],
+    ["Resolved", header.decisionAt ? formatDate(header.decisionAt) : "—"],
+    [
+      "Added by",
+      header.createdByName ?? "Candidate via careers site",
+    ],
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Details</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid gap-3 text-sm sm:grid-cols-[10rem_1fr]">
+          {rows.map(([label, value]) => (
+            <div key={label} className="contents">
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd className="min-w-0">{value}</dd>
+            </div>
+          ))}
+          <dt className="text-muted-foreground">CV</dt>
+          <dd className="flex flex-wrap items-center gap-2">
+            {header.cv ? (
+              <>
+                <span className="truncate">{header.cv.fileName}</span>
+                {header.cv.mimeType === "application/pdf" ? (
+                  <Button asChild size="xs" variant="outline">
+                    <a href={`/api/files/${header.cv.attachmentId}?inline=1`} target="_blank" rel="noreferrer">
+                      <ExternalLink /> Open
+                    </a>
+                  </Button>
+                ) : null}
+                <Button asChild size="xs" variant="outline">
+                  <a href={`/api/files/${header.cv.attachmentId}`}>
+                    <Download /> Download
+                  </a>
+                </Button>
+              </>
+            ) : (
+              <span className="text-muted-foreground">No CV attached</span>
+            )}
+          </dd>
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function ApplicationPage({
   params,
+  searchParams,
 }: PageProps<"/applications/[applicationId]">) {
   const viewer = await requireUser();
   const { applicationId } = await params;
+  const { tab } = await searchParams;
 
   // Interviewers reach this page only for applications they are responsible
   // for assessing right now; authorize before loading the application DTO.
@@ -47,76 +149,108 @@ export default async function ApplicationPage({
   const header = await getApplicationHeader(applicationId);
   if (!header) notFound();
 
+  const isStaff = can(viewer.role, "application:view");
   const canManage = can(viewer.role, "application:manage");
   const canOverrideFlow = can(viewer.role, "application:override-flow");
   const seesEverything = can(viewer.role, "scorecard:read-all");
 
-  const [entries, revisionGroups, feedback, context, emails, fill] =
+  const tabs: Array<{ id: ApplicationTab; label: string }> = [
+    { id: "feed", label: "Feed" },
+    { id: "feedback", label: "Feedback" },
+    ...(isStaff ? [{ id: "emails" as const, label: "Emails" }] : []),
+    { id: "details", label: "Details" },
+  ];
+  const current = parseTab(
+    tab,
+    isStaff ? "feed" : "feedback",
+    tabs.map((t) => t.id),
+  );
+
+  const [entries, revisionGroups, feedback, context, emails, fill, stepper, emailCount] =
     await Promise.all([
-      getApplicationTimeline(applicationId, viewer),
-      getApplicationScorecardRevisions(applicationId, viewer),
-      listScorecardsForApplication(applicationId, viewer),
-      getAdvanceContext(applicationId),
-      listNotificationsForApplication(applicationId, viewer),
-      canManage ? getFillSummary(header.positionId) : Promise.resolve(null),
+      current === "feed" ? getApplicationTimeline(applicationId, viewer) : [],
+      current === "feedback" ? getApplicationScorecardRevisions(applicationId, viewer) : [],
+      current === "feedback" ? listScorecardsForApplication(applicationId, viewer) : null,
+      canManage || canOverrideFlow ? getAdvanceContext(applicationId) : null,
+      current === "emails" && isStaff
+        ? listNotificationsForApplication(applicationId, viewer)
+        : [],
+      canManage ? getFillSummary(header.positionId) : null,
+      getApplicationStepper(applicationId),
+      isStaff ? countNotificationsForApplication(applicationId, viewer) : 0,
     ]);
 
-  const showActions = context && (canManage || canOverrideFlow);
   const active = header.status === "active";
+  const tabsWithCounts = tabs.map((t) =>
+    t.id === "emails" ? { ...t, label: `Emails (${emailCount})` } : t,
+  );
 
   return (
     <>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {header.candidateName}
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          {can(viewer.role, "position:view") ? (
-            <Link
-              href={`/positions/${header.positionId}`}
-              className="hover:underline"
-            >
-              {header.positionTitle}
-            </Link>
-          ) : (
-            header.positionTitle
-          )}{" "}
-          · applied {formatDate(header.appliedAt)}
-          {header.createdByName
-            ? ` · added by ${header.createdByName}`
-            : " · applied via the careers site"}
-        </p>
-        {seesEverything && header.salaryExpectation ? (
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {header.candidateName}
+          </h1>
+          <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <ClickToCopy value={header.candidateEmail} label="Email" />
+            {header.candidatePhone ? (
+              <ClickToCopy value={header.candidatePhone} label="Phone" />
+            ) : null}
+          </div>
           <p className="text-muted-foreground mt-1 text-sm">
-            Salary expectation:{" "}
-            <span className="text-foreground">{header.salaryExpectation}</span>
+            {can(viewer.role, "position:view") ? (
+              <Link href={`/positions/${header.positionId}`} className="hover:underline">
+                {header.positionTitle}
+              </Link>
+            ) : (
+              header.positionTitle
+            )}{" "}
+            · applied {formatDate(header.appliedAt)}
+            {header.createdByName ? ` · added by ${header.createdByName}` : " · via the careers site"}
           </p>
-        ) : null}
-      </div>
+        </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline" className="font-normal">
-          {header.currentStageName ?? "No stage"}
-        </Badge>
-        <Badge variant="secondary" className="font-normal capitalize">
-          {header.status.replace("_", " ")}
-        </Badge>
-        {showActions ? (
-          <div className="ml-auto flex items-center gap-2">
-            {canManage ? (
+        {context && (canManage || canOverrideFlow) ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* HR: Hire replaces Advance at the final stage. */}
+            {canManage && active && context.isFinalStage && fill ? (
+              <HireDialog context={context} fill={fill} />
+            ) : canManage ? (
               <AdvanceButton
                 context={context}
                 canOverride={can(viewer.role, "application:override-gate")}
               />
-            ) : null}
-            {canManage && fill && active ? (
-              <HireDialog context={context} fill={fill} />
             ) : null}
             {canManage && active ? <RejectDialog context={context} /> : null}
             {canOverrideFlow ? <FlowOverrideMenu context={context} /> : null}
           </div>
         ) : null}
       </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary" className="font-normal">
+          {APPLICATION_STATUS_LABELS[header.status as keyof typeof APPLICATION_STATUS_LABELS] ?? header.status}
+        </Badge>
+        {active && header.enteredAt ? <PaceBadge pace={paceFor(header.enteredAt)} /> : null}
+      </div>
+
+      <StageStepper stages={stepper} />
+
+      {header.status === "rejected" ? (
+        <Alert variant="destructive">
+          <UserX />
+          <AlertTitle>
+            Rejected
+            {header.rejectionReason
+              ? ` — ${REJECTION_REASON_LABELS[header.rejectionReason as keyof typeof REJECTION_REASON_LABELS] ?? header.rejectionReason}`
+              : ""}
+          </AlertTitle>
+          {seesEverything && header.decisionReason ? (
+            <AlertDescription>{header.decisionReason}</AlertDescription>
+          ) : null}
+        </Alert>
+      ) : null}
 
       {context?.currentStage && (active || header.status === "on_hold") ? (
         <GatePanel
@@ -126,32 +260,39 @@ export default async function ApplicationPage({
         />
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>History</CardTitle>
-          <CardDescription>
-            Stage changes, interview feedback and candidate communication, in
-            one order.
-            {seesEverything
-              ? null
-              : " You see feedback from others once you have submitted your own for that stage."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ActivityTimeline entries={entries} />
-        </CardContent>
-      </Card>
+      <ApplicationTabs applicationId={applicationId} tabs={tabsWithCounts} current={current} />
 
-      <FeedbackList
-        feedback={feedback}
-        applicationId={applicationId}
-        viewerId={viewer.id}
-        editable={header.status === "active" || header.status === "on_hold"}
-      />
+      {current === "feed" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>History</CardTitle>
+            <CardDescription>
+              Stage changes, interview feedback and candidate communication, in
+              one order.
+              {seesEverything
+                ? null
+                : " You see feedback from others once you have submitted your own for that stage."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActivityTimeline entries={entries} />
+          </CardContent>
+        </Card>
+      ) : null}
 
-      <ScorecardRevisionViewer groups={revisionGroups} />
+      {current === "feedback" && feedback ? (
+        <>
+          <FeedbackList
+            feedback={feedback}
+            applicationId={applicationId}
+            viewerId={viewer.id}
+            editable={active || header.status === "on_hold"}
+          />
+          <ScorecardRevisionViewer groups={revisionGroups} />
+        </>
+      ) : null}
 
-      {can(viewer.role, "application:view") ? (
+      {current === "emails" && isStaff ? (
         <EmailsTab
           applicationId={applicationId}
           candidateName={header.candidateName}
@@ -160,6 +301,10 @@ export default async function ApplicationPage({
           emails={emails}
           canSend={canManage}
         />
+      ) : null}
+
+      {current === "details" ? (
+        <DetailsTab header={header} seesEverything={seesEverything} />
       ) : null}
     </>
   );

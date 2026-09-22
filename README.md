@@ -94,6 +94,17 @@ NULL` and are shown as "Candidate via careers site". On success the browser is
 sent to `/careers/[positionId]/applied`; the acknowledgement email follows the
 [email modes](#email-modes) above (simulated locally).
 
+### Careers board
+
+`/careers` lists open roles whose deadline is unset or in the future, grouped
+under department headings with `All (N)` / `{Dept} (N)` pills (`?department=`,
+shown only when more than one department is open). Each row and the detail
+page read "{N} openings · apply by {d MMM yyyy}" or "open until filled". The
+header uses `NEXT_PUBLIC_COMPANY_NAME` and links to staff sign-in; the footer
+line is `NEXT_PUBLIC_CAREERS_FOOTER`. HR can still add a candidate by hand after
+the public deadline — the form warns, and the application's history entry
+records that intake happened after the deadline.
+
 ### Rate limit
 
 **10 attempts per client address per hour**, counted on every attempt
@@ -113,4 +124,69 @@ bun run test:notifications   # templates + transport only
 bun run test:decisions       # record-before-dispatch against the seeded DB
 NOTIFICATIONS_ENABLED=true RESEND_API_KEY=stub bun run test:decisions   # provider path with a stub transport
 bun run test:public-apply    # careers intake: happy path, duplicate (incl. concurrent), deadline, non-open, bad file, honeypot, rate limit
+```
+
+## Staff workspace
+
+### Application page
+
+`/applications/[id]` is the one place to act on a candidate: header with
+click-to-copy email/phone, status and pace badges, a rejected banner, a stage
+stepper (live stages plus any archived stage the candidate visited, muted), and
+tabs via `?tab=` — Feed, Feedback, Emails (staff only, with a count) and
+Details (salary expectation reads "Restricted" for interviewers; CV row opens
+inline or downloads). HR gets Advance / Reject, with Hire replacing Advance at
+the final stage; management gets the exceptions menu only; interviewers get no
+pipeline controls and land on Feedback. The candidate profile keeps compact
+links here.
+
+### Pipeline board and position candidates
+
+`getPipelineBoard` loads at most 8 cards per live stage using
+`row_number() over (partition by current_stage_id order by entered_at)`;
+per-stage totals, the active total, the stalled count (6+ days) and the
+resolved strip (Hired / On hold / Rejected) come from grouped `count(*)`
+queries that never touch the loaded cards. "View all {total}", "List view" and
+the resolved links land on `/positions/[id]/candidates`, a position-scoped
+list with All / stage / On hold / Hired / Rejected pills (`?stage=` and
+`?status=` are mutually exclusive), search, and 25-per-page server paging that
+reuses the global candidate query.
+
+Recorded against a synthetic position with 1,000 applications
+(`bun run test:pipeline`, remote Supabase from a laptop): board ~0.5 s warm
+(~1.7 s cold), 24 cards / 7.5 KB payload; review queue ~1.0 s (25 cards);
+dashboard aggregates ~0.4 s. Counts were asserted exact for every column,
+stalled and resolved totals.
+
+### First-stage review
+
+`/positions/[id]/review` (HR and management) walks the first live stage oldest
+first with the CV inline on the left (`/api/files/[id]?inline=1` — same
+authorisation and 60-second signed URL, inline disposition; Word files offer a
+download) and the candidate, gate status and decision controls on the right.
+HR can Advance (through the gate, or with a recorded override) and Reject;
+`A` / `R` open those dialogs, `J` / `K` move between candidates. Management can
+inspect and navigate only. The pipeline page shows "Review {N} at {stage}"
+when someone is waiting.
+
+### Dashboard
+
+Management sees "Waiting on your approval"; HR and management see open
+positions with "{active} active · {stuck} stuck 6+ days · {hired}/{openings}
+hired" and a "blocked on feedback" badge, plus the last 8 application events.
+Anyone on a panel sees their first six outstanding scorecards with a link to
+the full queue; interviewers see only that section. Every number is a grouped
+SQL count — "blocked on feedback" is one statement over stages requiring
+scorecards, active panel size and submitted counts.
+
+### Test scripts
+
+```
+cd apps/app
+bun run test:unit          # pure domain/validation/template tests
+bun run test:decisions     # advance/reject with record-before-dispatch
+bun run test:public-apply  # careers intake
+bun run test:pipeline      # bounded board, review queue, dashboard counts at 1,000 apps
+bun run test:queue / test:scorecards
+bun run test:e2e           # Playwright: scorecard flow + application page per role
 ```

@@ -16,9 +16,12 @@ import { createCvSignedUrl } from "@/lib/storage/attachments";
  * Action because this has to answer a browser navigation with a redirect.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ attachmentId: string }> },
 ) {
+  // `?inline=1` asks for an inline disposition (PDF preview in a frame).
+  // It changes nothing about who may fetch the file.
+  const inline = new URL(request.url).searchParams.get("inline") === "1";
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Sign in to download this file." }, { status: 401 });
@@ -47,6 +50,7 @@ export async function GET(
     attachment.storagePath,
     attachment.fileName,
     attachment.bucket,
+    { inline },
   );
   if (!signed.ok) {
     return NextResponse.json({ error: signed.error }, { status: 500 });

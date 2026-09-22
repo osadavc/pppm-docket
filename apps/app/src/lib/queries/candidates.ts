@@ -4,6 +4,7 @@ import { and, asc, count, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm
 import { db } from "@/db/client";
 import {
   applications,
+  applicationStages,
   attachments,
   candidates,
   positions,
@@ -64,7 +65,12 @@ export async function getCandidate(candidateId: string) {
 /** Positions a candidate can actually be added to right now. */
 export async function listOpenPositionsForApplication() {
   return db
-    .select({ id: positions.id, title: positions.title, department: positions.department })
+    .select({
+      id: positions.id,
+      title: positions.title,
+      department: positions.department,
+      applicationDeadline: positions.applicationDeadline,
+    })
     .from(positions)
     .where(eq(positions.status, "open"))
     .orderBy(asc(positions.title));
@@ -139,6 +145,8 @@ export type CandidateSearchRow = {
   stageName: string | null;
   status: string | null;
   attachmentId: string | null;
+  /** When they entered their current stage; drives the pace column. */
+  enteredAt: Date | null;
 };
 
 /**
@@ -186,6 +194,7 @@ export async function searchCandidates(search: CandidateSearch) {
       stageName: positionStages.name,
       status: applications.status,
       attachmentId: attachments.id,
+      enteredAt: applicationStages.enteredAt,
       // Counted over the full filtered set before LIMIT, so a page and its
       // total arrive in ONE round trip. At this distance from the database a
       // second query costs far more than the query itself: execution is ~3ms,
@@ -196,6 +205,13 @@ export async function searchCandidates(search: CandidateSearch) {
     .leftJoin(applications, eq(applications.candidateId, candidates.id))
     .leftJoin(positions, eq(positions.id, applications.positionId))
     .leftJoin(positionStages, eq(positionStages.id, applications.currentStageId))
+    .leftJoin(
+      applicationStages,
+      and(
+        eq(applicationStages.applicationId, applications.id),
+        eq(applicationStages.positionStageId, applications.currentStageId),
+      ),
+    )
     .leftJoin(
       attachments,
       and(

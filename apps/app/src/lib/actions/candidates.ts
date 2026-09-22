@@ -71,9 +71,13 @@ export async function addCandidate(
     where: eq(positions.id, d.positionId),
   });
   if (!position) return fail("That position no longer exists.");
+  // Status only: the public deadline closes the careers form, not HR's door.
   if (!acceptsApplications(position.status)) {
     return fail(`“${position.title}” is not open, so it cannot take new candidates.`);
   }
+  const afterDeadline =
+    position.applicationDeadline !== null &&
+    position.applicationDeadline.getTime() <= Date.now();
 
   // Only live stages form the pipeline a new candidate walks.
   const stages = await db
@@ -189,10 +193,12 @@ export async function addCandidate(
         entityId: applicationId,
         applicationId,
         positionId: d.positionId,
-        summary: `${d.fullName} applied to “${position.title}” and entered the pipeline at “${stages[0]!.name}”`,
+        summary: `${d.fullName} applied to “${position.title}” and entered the pipeline at “${stages[0]!.name}”${afterDeadline ? ` — added by ${actor.name} after the public deadline (${position.applicationDeadline!.toISOString().slice(0, 10)})` : ""}`,
         metadata: {
           source: d.source,
           addedBy: actor.email,
+          afterPublicDeadline: afterDeadline,
+          publicDeadline: position.applicationDeadline?.toISOString() ?? null,
           firstStageId: stages[0]!.id,
           firstStageName: stages[0]!.name,
           cvFileName: cv.name,

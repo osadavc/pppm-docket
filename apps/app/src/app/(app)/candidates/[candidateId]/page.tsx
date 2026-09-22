@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Download, FileText } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,14 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AdvanceButton } from "@/components/applications/advance-button";
-import { FlowOverrideMenu } from "@/components/applications/flow-override-menu";
-import { RejectDialog } from "@/components/applications/reject-dialog";
-import { HireDialog } from "@/components/applications/hire-dialog";
-import { getFillSummary } from "@/lib/queries/positions";
 import { requirePermission } from "@/lib/auth/guards";
-import { can } from "@/lib/auth/permissions";
-import { getAdvanceContext } from "@/lib/queries/applications";
 import { formatDate } from "@/lib/format";
 import { getCandidate } from "@/lib/queries/candidates";
 import { CANDIDATE_SOURCE_LABELS } from "@/lib/validation/candidate";
@@ -35,7 +28,7 @@ export default async function CandidatePage({
   params,
   searchParams,
 }: PageProps<"/candidates/[candidateId]">) {
-  const user = await requirePermission("candidate:view");
+  await requirePermission("candidate:view");
   const { candidateId } = await params;
   // Where the list was when they clicked through, so Back returns to the same
   // filtered page rather than an unfiltered one.
@@ -44,30 +37,6 @@ export default async function CandidatePage({
 
   const candidate = await getCandidate(candidateId);
   if (!candidate) notFound();
-
-  const canAdvance = can(user.role, "application:manage");
-  const canOverrideFlow = can(user.role, "application:override-flow");
-  const contexts = canAdvance || canOverrideFlow
-    ? Object.fromEntries(
-        (
-          await Promise.all(
-            candidate.applications.map(async (a) => [a.id, await getAdvanceContext(a.id)] as const),
-          )
-        ).filter(([, c]) => c !== null),
-      )
-    : {};
-
-  // Hiring needs to know how the position stands against approved headcount,
-  // so the dialog can warn before the fact and prompt to close out after.
-  const fills = canAdvance
-    ? Object.fromEntries(
-        await Promise.all(
-          candidate.applications
-            .filter((a) => a.position?.id)
-            .map(async (a) => [a.id, await getFillSummary(a.position!.id)] as const),
-        ),
-      )
-    : {};
 
   const facts: Array<[string, string]> = [
     ["Email", candidate.email],
@@ -108,7 +77,8 @@ export default async function CandidatePage({
             <CardHeader>
               <CardTitle>Applications</CardTitle>
               <CardDescription>
-                Where this person sits in each process they are part of.
+                Where this person sits in each process they are part of. Open an
+                application to act on it.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -135,7 +105,7 @@ export default async function CandidatePage({
                           href={`/applications/${a.id}`}
                           className="underline underline-offset-4"
                         >
-                          History
+                          Application
                         </Link>
                       </p>
                     </div>
@@ -146,21 +116,11 @@ export default async function CandidatePage({
                       <Badge variant="secondary" className="font-normal capitalize">
                         {a.status.replace("_", " ")}
                       </Badge>
-                      {contexts[a.id] && canAdvance ? (
-                        <AdvanceButton
-                          context={contexts[a.id]!}
-                          canOverride={can(user.role, "application:override-gate")}
-                        />
-                      ) : null}
-                      {contexts[a.id] && fills[a.id] && canAdvance && a.status === "active" ? (
-                        <HireDialog context={contexts[a.id]!} fill={fills[a.id]!} />
-                      ) : null}
-                      {contexts[a.id] && canAdvance && a.status === "active" ? (
-                        <RejectDialog context={contexts[a.id]!} />
-                      ) : null}
-                      {contexts[a.id] && canOverrideFlow ? (
-                        <FlowOverrideMenu context={contexts[a.id]!} />
-                      ) : null}
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/applications/${a.id}`}>
+                          Open <ArrowRight />
+                        </Link>
+                      </Button>
                     </div>
                   </div>
                 ))

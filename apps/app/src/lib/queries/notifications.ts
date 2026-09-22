@@ -1,6 +1,6 @@
 import "server-only";
 
-import { desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { notifications, user } from "@/db/schema";
 import type { NotificationStatus, NotificationType } from "@/db/schema/enums";
@@ -66,4 +66,17 @@ export async function listNotificationsForApplication(
     outcomeUnknown: metadata?.outcome === "unknown",
     redirected: metadata?.redirected === true,
   }));
+}
+
+/** For the tab label; same visibility rule as the list. */
+export async function countNotificationsForApplication(
+  applicationId: string,
+  viewer: SessionUser,
+) {
+  if (!viewer.isActive || !can(viewer.role, "application:view")) return 0;
+  const [row] = await db
+    .select({ n: count() })
+    .from(notifications)
+    .where(and(eq(notifications.applicationId, applicationId)));
+  return row?.n ?? 0;
 }
