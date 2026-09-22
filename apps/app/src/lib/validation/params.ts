@@ -20,3 +20,23 @@ export function parseUuidParam(value: string | string[] | undefined): string {
   if (!isUuid(raw)) notFound();
   return raw;
 }
+
+const LOCAL_ORIGIN = "http://docket.local";
+
+/**
+ * Where to send someone after sign-in, from `?next=`. Only a same-site path
+ * is honoured; anything else (absolute URLs, `//host`, `/\host`, which
+ * browsers read as `//host`) falls back, so the sign-in page can never be
+ * used to bounce a freshly authenticated user to another site.
+ */
+export function safeNextPath(value: unknown, fallback = "/dashboard"): string {
+  if (typeof value !== "string" || !value.startsWith("/")) return fallback;
+  if (value.startsWith("//") || value.startsWith("/\\")) return fallback;
+  try {
+    const url = new URL(value, LOCAL_ORIGIN);
+    if (url.origin !== LOCAL_ORIGIN) return fallback;
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return fallback;
+  }
+}

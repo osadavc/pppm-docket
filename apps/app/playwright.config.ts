@@ -3,6 +3,9 @@ import { config } from "dotenv";
 
 config({ path: ".env.local" });
 
+// Overridable so the suite can run while something else holds port 3000.
+const port = Number(process.env.E2E_PORT ?? 3000);
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: false,
@@ -11,7 +14,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: `http://localhost:${port}`,
     trace: "retain-on-failure",
   },
   projects: [
@@ -22,8 +25,8 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      "bunx next build --webpack && AUTH_RATE_LIMIT=off bunx next start --hostname localhost --port 3000",
-    url: "http://localhost:3000/sign-in",
+      `bunx next build --webpack && AUTH_RATE_LIMIT=off bunx next start --hostname localhost --port ${port}`,
+    url: `http://localhost:${port}/sign-in`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

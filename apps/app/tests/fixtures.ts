@@ -18,7 +18,7 @@ export const sql = postgres(databaseUrl, { prepare: false });
 export const db = drizzle(sql);
 
 export const TEST_PASSWORD = "DocketE2E!2026";
-export const BASE_URL = "http://localhost:3000";
+export const BASE_URL = `http://localhost:${process.env.E2E_PORT ?? 3000}`;
 
 export type Role = "hr" | "management" | "interviewer";
 
