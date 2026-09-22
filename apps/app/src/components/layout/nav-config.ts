@@ -1,5 +1,6 @@
 import {
   BadgeCheck,
+  BarChart3,
   BriefcaseBusiness,
   ClipboardCheck,
   LayoutDashboard,
@@ -49,6 +50,12 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/positions/approvals",
         icon: BadgeCheck,
         permission: "position:approve",
+      },
+      {
+        title: "Analytics",
+        href: "/reports",
+        icon: BarChart3,
+        permission: "report:view",
       },
     ],
   },

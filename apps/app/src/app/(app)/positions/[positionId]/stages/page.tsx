@@ -41,6 +41,14 @@ export default async function PositionStagesPage({
     requiresScorecard: s.requiresScorecard,
     minScorecards: s.minScorecards,
     slaDays: s.slaDays ?? "",
+    criteria: s.criteria.map((c) => ({
+      id: c.id,
+      label: c.label,
+      description: c.description,
+      weight: c.weight,
+      orderIndex: c.orderIndex,
+      isActive: c.isActive,
+    })),
   });
 
   const stages = position.stages.filter((s) => !s.isArchived).map(toEditable);

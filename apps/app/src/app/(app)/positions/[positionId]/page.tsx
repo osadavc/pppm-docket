@@ -35,6 +35,9 @@ import {
 import { getFillSummary, getPosition } from "@/lib/queries/positions";
 import { getStagePanels } from "@/lib/queries/stage-interviewers";
 import { getRejectionBreakdown } from "@/lib/queries/applications";
+import { getApprovalHistory, getPositionActivity } from "@/lib/queries/activity";
+import { ApprovalHistory } from "@/components/positions/approval-history";
+import { PositionActivity } from "@/components/positions/position-activity";
 
 export const metadata: Metadata = { title: "Position · Docket" };
 
@@ -55,7 +58,11 @@ export default async function PositionPage({
     position.lastReviewDecision === "rejected" && position.status === "draft";
   const canConfigureStages = can(user.role, "position:stages:manage");
   const panels = Object.fromEntries(await getStagePanels(position.id));
-  const rejections = await getRejectionBreakdown(position.id);
+  const [rejections, approvalEvents, activity] = await Promise.all([
+    getRejectionBreakdown(position.id),
+    getApprovalHistory(position.id),
+    getPositionActivity(position.id, user),
+  ]);
   const rejectedTotal = rejections.reduce((sum, r) => sum + r.count, 0);
   // Archived stages stay on the record but are not part of the live process.
   const activeStages = position.stages.filter((s) => !s.isArchived);
@@ -291,23 +298,29 @@ export default async function PositionPage({
           </Card>
         </div>
 
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle>Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            {facts.map(([label, value]) => (
-              <div
-                key={label}
-                className="flex justify-between gap-4 border-b pb-2 last:border-0 last:pb-0"
-              >
-                <span className="text-muted-foreground">{label}</span>
-                <span className="text-right font-medium">{value}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card className="h-fit">
+            <CardHeader>
+              <CardTitle>Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {facts.map(([label, value]) => (
+                <div
+                  key={label}
+                  className="flex justify-between gap-4 border-b pb-2 last:border-0 last:pb-0"
+                >
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="text-right font-medium">{value}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <ApprovalHistory events={approvalEvents} />
+        </div>
       </div>
+
+      <PositionActivity rows={activity} />
     </>
   );
 }

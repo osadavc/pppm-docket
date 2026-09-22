@@ -5,8 +5,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { Input } from "@/components/ui/input";
 
-/** Name/email search that keeps the current pill and resets the page. */
-export function PositionCandidateSearch() {
+/** URL-backed search box that keeps the current pill and resets the page. */
+export function PositionCandidateSearch({
+  placeholder = "Search name or email",
+}: {
+  placeholder?: string;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -38,8 +42,8 @@ export function PositionCandidateSearch() {
         name="q"
         defaultValue={term}
         onBlur={(e) => apply(e.target.value.trim())}
-        placeholder="Search name or email"
-        aria-label="Search candidates by name or email"
+        placeholder={placeholder}
+        aria-label={placeholder}
         className="pl-9"
       />
     </form>

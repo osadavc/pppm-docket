@@ -9,19 +9,28 @@ import {
   candidates,
   positionStageInterviewers,
   positionStages,
+  scorecardCriteria,
   user,
 } from "@/db/schema";
 import { logActivity } from "@/lib/activity/log";
 import { requirePermission } from "@/lib/auth/guards";
 import {
+  createCriterionSchema,
   createStageSchema,
   archiveStageSchema,
+  reorderCriteriaSchema,
   reorderStagesSchema,
+  setCriterionActiveSchema,
   setStageInterviewersSchema,
+  updateCriterionSchema,
   updateStageSchema,
+  type CreateCriterionInput,
   type CreateStageInput,
   type ArchiveStageInput,
+  type ReorderCriteriaInput,
+  type SetCriterionActiveInput,
   type SetStageInterviewersInput,
+  type UpdateCriterionInput,
   type UpdateStageInput,
 } from "@/lib/validation/stage";
 import { fail, ok, type ActionResult } from "./result";
@@ -567,4 +576,188 @@ export async function unarchiveStage(stageId: string): Promise<ActionResult<void
   revalidatePath(`/positions/${stage.positionId}`);
   revalidatePath(`/positions/${stage.positionId}/stages`);
   return ok(undefined);
+}
+
+// ---------------------------------------------------------------------------
+// Scorecard criteria
+//
+// Criteria belong to a stage. Editing them changes what *future* scorecards
+// ask; every submitted rating carries its own label/weight snapshot and a
+// frozen overall score, so nothing here rewrites an assessment already given.
+// Deactivation is the only removal: the FK from ratings is RESTRICT.
+// ---------------------------------------------------------------------------
+
+async function criterionStage(criterionId: string) {
+  const [row] = await db
+    .select({
+      id: scorecardCriteria.id,
+      label: scorecardCriteria.label,
+      weight: scorecardCriteria.weight,
+      isActive: scorecardCriteria.isActive,
+      stageId: positionStages.id,
+      stageName: positionStages.name,
+      positionId: positionStages.positionId,
+    })
+    .from(scorecardCriteria)
+    .innerJoin(positionStages, eq(positionStages.id, scorecardCriteria.positionStageId))
+    .where(eq(scorecardCriteria.id, criterionId));
+  return row ?? null;
+}
+
+async function logCriteriaChange(
+  tx: Tx,
+  actor: { id: string; name: string },
+  stage: { stageId: string; stageName: string; positionId: string },
+  summary: string,
+  metadata: Record<string, unknown>,
+) {
+  await logActivity(tx, {
+    actorId: actor.id,
+    action: "position.stage_criteria_changed",
+    entityType: "position",
+    entityId: stage.positionId,
+    positionId: stage.positionId,
+    summary,
+    metadata: { stageId: stage.stageId, stageName: stage.stageName, ...metadata },
+  });
+}
+
+export async function createCriterion(
+  input: CreateCriterionInput,
+): Promise<ActionResult<{ id: string }>> {
+  const actor = await requirePermission("position:stages:manage");
+  const parsed = createCriterionSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail("Check the highlighted fields.", parsed.error.flatten().fieldErrors as Record<string, string[]>);
+  }
+  const { stageId, label, description, weight } = parsed.data;
+
+  const [stage] = await db
+    .select({ id: positionStages.id, name: positionStages.name, positionId: positionStages.positionId })
+    .from(positionStages)
+    .where(eq(positionStages.id, stageId));
+  if (!stage) return fail("That stage no longer exists.");
+
+  const created = await db.transaction(async (tx) => {
+    const [{ next }] = await tx
+      .select({ next: sql<number>`coalesce(max(${scorecardCriteria.orderIndex}), -1) + 1` })
+      .from(scorecardCriteria)
+      .where(eq(scorecardCriteria.positionStageId, stageId));
+    const [row] = await tx
+      .insert(scorecardCriteria)
+      .values({ positionStageId: stageId, label, description: description || null, weight, orderIndex: next })
+      .returning({ id: scorecardCriteria.id });
+    await logCriteriaChange(
+      tx, actor,
+      { stageId: stage.id, stageName: stage.name, positionId: stage.positionId },
+      `${actor.name} added the criterion “${label}” (weight ${weight}) to “${stage.name}”`,
+      { change: "added", criterionId: row!.id, label, weight },
+    );
+    return row!;
+  });
+
+  revalidatePath(`/positions/${stage.positionId}`);
+  revalidatePath(`/positions/${stage.positionId}/stages`);
+  return ok({ id: created.id });
+}
+
+export async function updateCriterion(
+  input: UpdateCriterionInput,
+): Promise<ActionResult<{ id: string }>> {
+  const actor = await requirePermission("position:stages:manage");
+  const parsed = updateCriterionSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail("Check the highlighted fields.", parsed.error.flatten().fieldErrors as Record<string, string[]>);
+  }
+  const { criterionId, label, description, weight } = parsed.data;
+  const existing = await criterionStage(criterionId);
+  if (!existing) return fail("That criterion no longer exists.");
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(scorecardCriteria)
+      .set({ label, description: description || null, weight })
+      .where(eq(scorecardCriteria.id, criterionId));
+    const changes: string[] = [];
+    if (existing.label !== label) changes.push(`renamed “${existing.label}” to “${label}”`);
+    if (existing.weight !== weight) changes.push(`weight ${existing.weight} → ${weight}`);
+    await logCriteriaChange(
+      tx, actor, existing,
+      `${actor.name} updated the criterion “${label}” on “${existing.stageName}”${changes.length ? ` (${changes.join(", ")})` : ""}`,
+      { change: "updated", criterionId, before: { label: existing.label, weight: existing.weight }, after: { label, weight } },
+    );
+  });
+
+  revalidatePath(`/positions/${existing.positionId}`);
+  revalidatePath(`/positions/${existing.positionId}/stages`);
+  return ok({ id: criterionId });
+}
+
+export async function reorderCriteria(
+  input: ReorderCriteriaInput,
+): Promise<ActionResult<void>> {
+  const actor = await requirePermission("position:stages:manage");
+  const parsed = reorderCriteriaSchema.safeParse(input);
+  if (!parsed.success) return fail("That order is not valid.");
+  const { stageId, orderedCriterionIds } = parsed.data;
+
+  const [stage] = await db
+    .select({ id: positionStages.id, name: positionStages.name, positionId: positionStages.positionId })
+    .from(positionStages)
+    .where(eq(positionStages.id, stageId));
+  if (!stage) return fail("That stage no longer exists.");
+  const current = await db
+    .select({ id: scorecardCriteria.id })
+    .from(scorecardCriteria)
+    .where(and(eq(scorecardCriteria.positionStageId, stageId), eq(scorecardCriteria.isActive, true)));
+  const ids = new Set(current.map((c) => c.id));
+  if (orderedCriterionIds.length !== ids.size || !orderedCriterionIds.every((id) => ids.has(id))) {
+    return fail("The list is out of date — reload and try again.");
+  }
+
+  await db.transaction(async (tx) => {
+    for (const [index, id] of orderedCriterionIds.entries()) {
+      await tx.update(scorecardCriteria).set({ orderIndex: index }).where(eq(scorecardCriteria.id, id));
+    }
+    await logCriteriaChange(
+      tx, actor,
+      { stageId: stage.id, stageName: stage.name, positionId: stage.positionId },
+      `${actor.name} reordered the criteria on “${stage.name}”`,
+      { change: "reordered", order: orderedCriterionIds },
+    );
+  });
+
+  revalidatePath(`/positions/${stage.positionId}`);
+  revalidatePath(`/positions/${stage.positionId}/stages`);
+  return ok(undefined);
+}
+
+/**
+ * Deactivate (or bring back) a criterion. Historic ratings stay exactly as
+ * they were — the database refuses to delete a rated criterion — and the
+ * scorecard form simply stops asking for it.
+ */
+export async function setCriterionActive(
+  input: SetCriterionActiveInput,
+): Promise<ActionResult<{ id: string }>> {
+  const actor = await requirePermission("position:stages:manage");
+  const parsed = setCriterionActiveSchema.safeParse(input);
+  if (!parsed.success) return fail("That request is not valid.");
+  const { criterionId, isActive } = parsed.data;
+  const existing = await criterionStage(criterionId);
+  if (!existing) return fail("That criterion no longer exists.");
+  if (existing.isActive === isActive) return ok({ id: criterionId });
+
+  await db.transaction(async (tx) => {
+    await tx.update(scorecardCriteria).set({ isActive }).where(eq(scorecardCriteria.id, criterionId));
+    await logCriteriaChange(
+      tx, actor, existing,
+      `${actor.name} ${isActive ? "reactivated" : "deactivated"} the criterion “${existing.label}” on “${existing.stageName}”`,
+      { change: isActive ? "reactivated" : "deactivated", criterionId, label: existing.label },
+    );
+  });
+
+  revalidatePath(`/positions/${existing.positionId}`);
+  revalidatePath(`/positions/${existing.positionId}/stages`);
+  return ok({ id: criterionId });
 }

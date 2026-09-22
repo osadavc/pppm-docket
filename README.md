@@ -179,6 +179,41 @@ the full queue; interviewers see only that section. Every number is a grouped
 SQL count — "blocked on feedback" is one statement over stages requiring
 scorecards, active panel size and submitted counts.
 
+### Analytics
+
+`/reports` (nav "Analytics", `report:view` = HR + management) shows KPI tiles
+(open positions, active candidates, hired, average time to hire = mean of
+decision − applied over hired, "—" when none), one stage funnel per open or
+filled position (applications that ever entered each live stage, then Hired),
+drop-out reasons across all positions, time to fill for filled positions
+(closed − opened days) and the last 12 application events. Charts are
+theme-token CSS bars with printed values. Every figure is a grouped aggregate
+in `src/lib/queries/analytics.ts`; `bun run test:analytics` asserts them on a
+controlled fixture and prints the timing — ~1.5 s for all four aggregates in
+parallel against the remote Supabase from a laptop. Treat that as the
+environment budget to watch, not a universal threshold.
+
+### Positions list, approval history, criteria, accounts
+
+- `/positions`: status pills (`?status=`), title/department search (`?q=`,
+  ≤ 80 chars, ILIKE), 20 per page; the Stages column counts live stages only
+  (also on the approvals page).
+- Position detail: "Approval history" reads every request/approve/send-back
+  cycle from `activity_log` with the note quoted ("Not submitted yet." when
+  empty); "Position activity" lists the position's own audit rows.
+- Stage editor → criteria per stage (label 2–80, description, weight 1–5;
+  add / rename / reorder / deactivate). Ratings store the criterion label and
+  weight at submission (`criterion_label` / `criterion_weight`, migration
+  0016), so renames never relabel history and frozen scores never move;
+  deleting a rated criterion is refused by the FK. Activity
+  `position.stage_criteria_changed`.
+- Users: Status and Created columns; management can deactivate/reactivate
+  (never self, never the last active manager). Deactivation flips
+  `is_active` and deletes all sessions in one transaction; sign-in is refused
+  by a better-auth `session.create.before` hook with a stable message; the
+  guards treat an inactive user as signed out everywhere, including
+  `/api/files`. Deactivated panel members render struck through.
+
 ### Test scripts
 
 ```
@@ -187,6 +222,8 @@ bun run test:unit          # pure domain/validation/template tests
 bun run test:decisions     # advance/reject with record-before-dispatch
 bun run test:public-apply  # careers intake
 bun run test:pipeline      # bounded board, review queue, dashboard counts at 1,000 apps
+bun run test:analytics     # KPI / funnel / drop-out / time-to-fill on a controlled fixture
+bun run test:criteria      # criterion rename/deactivate never touches submitted ratings
 bun run test:queue / test:scorecards
-bun run test:e2e           # Playwright: scorecard flow + application page per role
+bun run test:e2e           # Playwright: scorecard flow, application page + analytics per role, account deactivation
 ```

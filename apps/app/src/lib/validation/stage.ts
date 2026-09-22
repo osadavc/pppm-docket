@@ -64,3 +64,43 @@ export const archiveStageSchema = z.object({
 });
 
 export type ArchiveStageInput = z.infer<typeof archiveStageSchema>;
+
+/** Scorecard criteria: what a stage is scored on. */
+const criterionFields = {
+  label: z
+    .string()
+    .trim()
+    .min(2, "Label must be at least 2 characters")
+    .max(80, "Label is too long"),
+  description: z.string().trim().max(500).optional(),
+  weight: z
+    .number({ message: "Choose a weight" })
+    .int()
+    .min(1, "Weight is 1–5")
+    .max(5, "Weight is 1–5"),
+};
+
+export const createCriterionSchema = z.object({
+  stageId: z.uuid(),
+  ...criterionFields,
+});
+
+export const updateCriterionSchema = z.object({
+  criterionId: z.uuid(),
+  ...criterionFields,
+});
+
+export const reorderCriteriaSchema = z.object({
+  stageId: z.uuid(),
+  orderedCriterionIds: z.array(z.uuid()).min(1),
+});
+
+export const setCriterionActiveSchema = z.object({
+  criterionId: z.uuid(),
+  isActive: z.boolean(),
+});
+
+export type CreateCriterionInput = z.infer<typeof createCriterionSchema>;
+export type UpdateCriterionInput = z.infer<typeof updateCriterionSchema>;
+export type ReorderCriteriaInput = z.infer<typeof reorderCriteriaSchema>;
+export type SetCriterionActiveInput = z.infer<typeof setCriterionActiveSchema>;

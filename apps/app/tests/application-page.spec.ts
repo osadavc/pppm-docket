@@ -146,7 +146,27 @@ test("application page per role: HR, management, interviewer", async ({ browser 
   await expect(hr.getByText("No CV attached")).toBeVisible();
   await hr.getByRole("link", { name: "Emails (0)", exact: true }).click();
   await expect(hr.getByRole("button", { name: "Compose email" })).toBeVisible();
+
+  // Analytics renders its sections for HR; the positions list filters and pages.
+  await hr.goto("/reports");
+  for (const heading of ["Stage funnels", "Why candidates drop out", "Time to fill", "Recent activity"]) {
+    await expect(hr.getByText(heading, { exact: true })).toBeVisible();
+  }
+  await expect(hr.getByText("Average time to hire")).toBeVisible();
+  await hr.goto(`/positions?status=open&q=${encodeURIComponent("Application E2E")}`);
+  await expect(hr.getByText(/Page 1 of 1 · 1 total/).first()).toBeVisible();
+  await expect(hr.getByRole("link", { name: "Open", exact: true })).toHaveAttribute("aria-current", "page");
+  await hr.goto("/positions?status=closed&q=zzz-no-such-position");
+  await expect(hr.getByText("No positions match — try clearing the search or status filter.")).toBeVisible();
+  // Position detail: approval history and activity feed are present.
+  await hr.goto(`/positions/${positionId}`);
+  await expect(hr.getByText("Approval history")).toBeVisible();
+  await expect(hr.getByText("Not submitted yet.")).toBeVisible();
+  await expect(hr.getByText("Position activity")).toBeVisible();
   await hr.context().close();
+
+  // Interviewers are refused analytics outright.
+
 
   // Management: view and exceptions only.
   const mgmt = await (await browser.newContext()).newPage();
@@ -164,6 +184,8 @@ test("application page per role: HR, management, interviewer", async ({ browser 
   // Interviewer: Feedback by default, no Emails tab, no actions, salary hidden.
   const int = await (await browser.newContext()).newPage();
   await signIn(int, interviewerEmail);
+  const forbidden = await int.request.get("/reports", { maxRedirects: 0 });
+  assert.equal(forbidden.status(), 403);
   await int.goto(`/applications/${applicationId}`);
   await expect(int.getByRole("heading", { name: "App E2E Candidate" })).toBeVisible();
   await expect(int.getByRole("link", { name: "Feedback", exact: true })).toHaveAttribute("aria-current", "page");

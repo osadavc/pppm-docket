@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatDate } from "@/lib/format";
 import type { StaffAccount } from "@/lib/queries/users";
 
 export function UserTable({
@@ -36,8 +37,10 @@ export function UserTable({
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Job title</TableHead>
               <TableHead>Department</TableHead>
+              <TableHead>Created</TableHead>
               <TableHead className="w-12 text-right">
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -45,7 +48,7 @@ export function UserTable({
           </TableHeader>
           <TableBody>
             {users.map((u) => (
-              <TableRow key={u.id}>
+              <TableRow key={u.id} className={u.isActive ? undefined : "opacity-60"}>
                 <TableCell className="font-medium">
                   {u.name}
                   {u.id === currentUserId ? (
@@ -58,12 +61,18 @@ export function UserTable({
                 <TableCell>
                   <RoleBadge role={u.role} />
                 </TableCell>
+                <TableCell>
+                  <Badge variant={u.isActive ? "outline" : "destructive"} className="font-normal">
+                    {u.isActive ? "Active" : "Deactivated"}
+                  </Badge>
+                </TableCell>
                 <TableCell className="text-muted-foreground">
                   {u.jobTitle || "—"}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {u.department || "—"}
                 </TableCell>
+                <TableCell className="text-muted-foreground">{formatDate(u.createdAt)}</TableCell>
                 <TableCell className="text-right">
                   <UserRowActions user={u} isSelf={u.id === currentUserId} />
                 </TableCell>

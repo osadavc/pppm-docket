@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, MoreHorizontal, ShieldCheck } from "lucide-react";
+import { KeyRound, MoreHorizontal, ShieldCheck, UserRoundCheck, UserRoundX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -29,11 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { changeUserRole, setUserPassword } from "@/lib/actions/users";
+import { changeUserRole, setUserActive, setUserPassword } from "@/lib/actions/users";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLES, type UserRole } from "@/lib/auth/roles";
 import type { StaffAccount } from "@/lib/queries/users";
 
-type DialogKind = "role" | "password" | null;
+type DialogKind = "role" | "password" | "active" | null;
 
 export function UserRowActions({
   user,
@@ -67,6 +67,25 @@ export function UserRowActions({
       return;
     }
     toast.success(`${user.name} is now ${ROLE_LABELS[role]}`);
+    close();
+    router.refresh();
+  }
+
+  async function submitActive() {
+    setPending(true);
+    setError(undefined);
+    const result = await setUserActive({ userId: user.id, isActive: !user.isActive });
+    setPending(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    toast.success(
+      result.data.isActive
+        ? `${user.name} is active again.`
+        : `${user.name} is deactivated and signed out everywhere.`,
+    );
     close();
     router.refresh();
   }
@@ -106,6 +125,21 @@ export function UserRowActions({
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setDialog("password")}>
             <KeyRound /> Reset password
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={isSelf}
+            variant={user.isActive ? "destructive" : "default"}
+            onSelect={() => setDialog("active")}
+          >
+            {user.isActive ? (
+              <>
+                <UserRoundX /> Deactivate account
+              </>
+            ) : (
+              <>
+                <UserRoundCheck /> Reactivate
+              </>
+            )}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -155,6 +189,37 @@ export function UserRowActions({
               disabled={pending || role === user.role}
             >
               {pending ? "Saving…" : "Save role"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialog === "active"} onOpenChange={(o) => !o && close()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{user.isActive ? "Deactivate account" : "Reactivate account"}</DialogTitle>
+            <DialogDescription>
+              {user.isActive
+                ? `${user.name} (${user.email}) will be signed out of every device immediately and refused at sign-in until reactivated. Their history and feedback stay on the record.`
+                : `${user.name} (${user.email}) will be able to sign in again with their existing password.`}
+            </DialogDescription>
+          </DialogHeader>
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={close}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant={user.isActive ? "destructive" : "default"}
+              onClick={submitActive}
+              disabled={pending}
+            >
+              {pending ? "Saving…" : user.isActive ? "Deactivate" : "Reactivate"}
             </Button>
           </DialogFooter>
         </DialogContent>

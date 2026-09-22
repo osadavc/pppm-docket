@@ -45,6 +45,11 @@ export const getSession = cache(async () => {
     isActive: raw.isActive ?? true,
   };
 
+  // Deactivation deletes the account's sessions, but a cookie presented in
+  // the same instant as the change, or a row flipped by hand, must still get
+  // nothing: an inactive user is nobody, for pages, actions and file links.
+  if (!user.isActive) return null;
+
   return { session: session.session, user };
 });
 
@@ -59,9 +64,6 @@ export async function requireUser(nextPath?: string): Promise<SessionUser> {
     redirect(
       nextPath ? `/sign-in?next=${encodeURIComponent(nextPath)}` : "/sign-in",
     );
-  }
-  if (!user.isActive) {
-    redirect("/sign-in?error=deactivated");
   }
   return user;
 }

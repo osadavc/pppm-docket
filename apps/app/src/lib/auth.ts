@@ -4,7 +4,9 @@ import "server-only";
 // (we bring our own via drizzleAdapter), which keeps the server bundle smaller.
 import { betterAuth } from "better-auth/minimal";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import * as schema from "@/db/schema";
 import { env } from "@/env";
@@ -46,6 +48,32 @@ export const auth = betterAuth({
         required: false,
         defaultValue: true,
         input: false,
+      },
+    },
+  },
+
+  databaseHooks: {
+    session: {
+      create: {
+        /**
+         * A deactivated account never gets a session: sign-in is refused here,
+         * before any cookie is issued, with a message the form can show. The
+         * guards treat an inactive user as signed out for anything that
+         * slipped through (an old cookie), so this is the front door and
+         * `getSession` is the back.
+         */
+        before: async (session) => {
+          const [row] = await db
+            .select({ isActive: schema.user.isActive })
+            .from(schema.user)
+            .where(eq(schema.user.id, session.userId));
+          if (row && !row.isActive) {
+            throw new APIError("FORBIDDEN", {
+              message: "This account has been deactivated. Contact your administrator.",
+              code: "ACCOUNT_DEACTIVATED",
+            });
+          }
+        },
       },
     },
   },

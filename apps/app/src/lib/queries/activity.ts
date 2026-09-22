@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, exists, ne } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, ne } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import {
@@ -557,4 +557,110 @@ export async function getApplicationTimeline(
 
   // Newest first: the last thing that happened is what people look for.
   return entries.sort((a, b) => b.at.getTime() - a.at.getTime());
+}
+
+export type PositionActivityRow = {
+  id: number;
+  at: Date;
+  action: string;
+  summary: string;
+  actorName: string | null;
+  /** Populated for HR/management; contains notes and before/after values. */
+  meta: Record<string, unknown> | null;
+};
+
+/**
+ * Everything logged against a position itself: created, updated, submitted,
+ * approved/sent back, stage and panel changes, filled/closed/cancelled.
+ * Candidate events carry a position_id too but belong on the candidate's own
+ * timeline, so they are excluded here.
+ */
+export async function getPositionActivity(
+  positionId: string,
+  viewer: SessionUser,
+  limit = 50,
+): Promise<PositionActivityRow[]> {
+  if (!viewer.isActive || !can(viewer.role, "position:view")) return [];
+
+  const rows = await db
+    .select({
+      id: activityLog.id,
+      at: activityLog.createdAt,
+      action: activityLog.action,
+      summary: activityLog.summary,
+      metadata: activityLog.metadata,
+      actorName: user.name,
+    })
+    .from(activityLog)
+    .leftJoin(user, eq(user.id, activityLog.actorId))
+    .where(
+      and(
+        eq(activityLog.positionId, positionId),
+        eq(activityLog.entityType, "position"),
+      ),
+    )
+    .orderBy(desc(activityLog.createdAt), desc(activityLog.id))
+    .limit(limit);
+
+  return rows.map((r) => ({
+    id: r.id,
+    at: r.at,
+    action: r.action,
+    summary: r.summary,
+    actorName: r.actorName,
+    meta: asRecord(r.metadata),
+  }));
+}
+
+export type ApprovalEvent = {
+  id: number;
+  kind: "requested" | "approved" | "sent_back";
+  actorName: string | null;
+  at: Date;
+  note: string | null;
+};
+
+/**
+ * Every approval cycle, oldest first, read from the activity log rather than
+ * from the position row: the row keeps only the latest decision, and a role
+ * that was sent back twice before being approved has three stories to tell.
+ */
+export async function getApprovalHistory(positionId: string): Promise<ApprovalEvent[]> {
+  const rows = await db
+    .select({
+      id: activityLog.id,
+      at: activityLog.createdAt,
+      action: activityLog.action,
+      metadata: activityLog.metadata,
+      actorName: user.name,
+    })
+    .from(activityLog)
+    .leftJoin(user, eq(user.id, activityLog.actorId))
+    .where(
+      and(
+        eq(activityLog.positionId, positionId),
+        inArray(activityLog.action, [
+          "position.submitted_for_approval",
+          "position.approved",
+          "position.rejected",
+        ]),
+      ),
+    )
+    .orderBy(asc(activityLog.createdAt), asc(activityLog.id));
+
+  return rows.map((r) => {
+    const note = asRecord(r.metadata)?.note;
+    return {
+      id: r.id,
+      kind:
+        r.action === "position.submitted_for_approval"
+          ? "requested"
+          : r.action === "position.approved"
+            ? "approved"
+            : "sent_back",
+      actorName: r.actorName,
+      at: r.at,
+      note: typeof note === "string" && note.trim() ? note.trim() : null,
+    };
+  });
 }

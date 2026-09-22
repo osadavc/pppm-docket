@@ -19,6 +19,8 @@ export type StagePanelMember = {
   email: string;
   role: UserRole;
   jobTitle: string | null;
+  /** False for a deactivated account still listed on a panel. */
+  isActive: boolean;
 };
 
 export type EligiblePanelFeedback = {
@@ -81,6 +83,7 @@ export async function getStagePanels(positionId: string) {
       email: user.email,
       role: user.role,
       jobTitle: user.jobTitle,
+      isActive: user.isActive,
     })
     .from(positionStageInterviewers)
     .innerJoin(user, eq(user.id, positionStageInterviewers.userId))
@@ -101,6 +104,7 @@ export async function getStagePanels(positionId: string) {
       email: r.email,
       role: isUserRole(r.role) ? r.role : "interviewer",
       jobTitle: r.jobTitle,
+      isActive: r.isActive,
     });
     byStage.set(r.stageId, list);
   }
@@ -130,6 +134,7 @@ export async function listAssignableInterviewers(): Promise<
     email: r.email,
     role: isUserRole(r.role) ? r.role : "interviewer",
     jobTitle: r.jobTitle,
+    isActive: true,
   }));
 }
 

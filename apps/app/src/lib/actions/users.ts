@@ -13,9 +13,11 @@ import {
   changeRoleSchema,
   createUserSchema,
   setPasswordSchema,
+  setUserActiveSchema,
   type ChangeRoleInput,
   type CreateUserInput,
   type SetPasswordInput,
+  type SetUserActiveInput,
 } from "@/lib/validation/user";
 import { fail, ok, type ActionResult } from "./result";
 
@@ -226,4 +228,66 @@ export async function setUserPassword(
 
   revalidatePath("/admin/users");
   return ok({ id: userId });
+}
+
+/**
+ * Deactivate a departing colleague, or bring them back.
+ *
+ * Deactivation flips `isActive` and deletes every session for the account in
+ * one transaction, so access ends on their very next request — there is no
+ * cookie cache to wait out. Sign-in is refused at the auth layer while the
+ * flag is off. The last active manager cannot be deactivated: that would lock
+ * user management for everyone.
+ */
+export async function setUserActive(
+  input: SetUserActiveInput,
+): Promise<ActionResult<{ id: string; isActive: boolean }>> {
+  const actor = await requireRole("management");
+
+  const parsed = setUserActiveSchema.safeParse(input);
+  if (!parsed.success) return fail("That request is not valid.");
+  const { userId, isActive } = parsed.data;
+
+  if (userId === actor.id) {
+    return fail("You cannot deactivate your own account. Ask another manager.");
+  }
+
+  const target = await db.query.user.findFirst({ where: eq(user.id, userId) });
+  if (!target) return fail("That account no longer exists.");
+  if (target.isActive === isActive) return ok({ id: userId, isActive });
+
+  if (!isActive && target.role === "management") {
+    const [{ count: remaining }] = await db
+      .select({ count: count() })
+      .from(user)
+      .where(and(eq(user.role, "management"), eq(user.isActive, true), ne(user.id, userId)));
+    if (remaining === 0) {
+      return fail("That is the last active manager. Promote someone else first.");
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.update(user).set({ isActive }).where(eq(user.id, userId));
+    let revoked = 0;
+    if (!isActive) {
+      const rows = await tx
+        .delete(session)
+        .where(eq(session.userId, userId))
+        .returning({ id: session.id });
+      revoked = rows.length;
+    }
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: isActive ? "user.reactivated" : "user.deactivated",
+      entityType: "user",
+      entityId: userId,
+      summary: isActive
+        ? `${actor.name} reactivated ${target.name} (${target.email})`
+        : `${actor.name} deactivated ${target.name} (${target.email}) and signed them out everywhere`,
+      metadata: { email: target.email, role: target.role, sessionsRevoked: revoked },
+    });
+  });
+
+  revalidatePath("/admin/users");
+  return ok({ id: userId, isActive });
 }

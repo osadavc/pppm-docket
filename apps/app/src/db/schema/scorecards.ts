@@ -76,6 +76,13 @@ export const scorecardRatings = pgTable(
       .references(() => scorecardCriteria.id, { onDelete: "restrict" }),
     rating: integer("rating").notNull(),
     comment: text("comment"),
+    /**
+     * The criterion as it read when this rating was given. A later rename or
+     * re-weighting of the live criterion must not relabel or rescore history,
+     * so the assessment carries its own copy.
+     */
+    criterionLabel: text("criterion_label"),
+    criterionWeight: integer("criterion_weight"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -129,6 +136,13 @@ export const scorecardRevisionRatings = pgTable(
       .references(() => scorecardCriteria.id, { onDelete: "restrict" }),
     rating: integer("rating").notNull(),
     comment: text("comment"),
+    /**
+     * The criterion as it read when this rating was given. A later rename or
+     * re-weighting of the live criterion must not relabel or rescore history,
+     * so the assessment carries its own copy.
+     */
+    criterionLabel: text("criterion_label"),
+    criterionWeight: integer("criterion_weight"),
     createdAt: createdAt(),
   },
   (t) => [
