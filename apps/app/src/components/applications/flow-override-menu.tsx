@@ -81,21 +81,35 @@ export function FlowOverrideMenu({ context }: { context: AdvanceContext }) {
     setError(undefined);
 
     const payload = { applicationId: context.applicationId, note: note || undefined };
-    const result =
-      kind === "skip"
-        ? await skipStage(payload)
-        : kind === "back"
-          ? await moveApplicationBack(payload)
-          : kind === "hold"
-            ? await holdApplication(payload)
-            : await resumeApplication(payload);
+    // Outcomes, not commands (QA-14): the toast confirms what just happened.
+    const name = context.candidateName;
+    const stage = context.currentStage?.name ?? "their stage";
+    let result: { ok: true; message: string } | { ok: false; error: string };
+
+    if (kind === "skip") {
+      const r = await skipStage(payload);
+      result = r.ok
+        ? { ok: true, message: `${name} skipped “${stage}” and is now at ${r.data.toStageName}.` }
+        : r;
+    } else if (kind === "back") {
+      const r = await moveApplicationBack(payload);
+      result = r.ok
+        ? { ok: true, message: `${name} moved back to ${r.data.toStageName}.` }
+        : r;
+    } else if (kind === "hold") {
+      const r = await holdApplication(payload);
+      result = r.ok ? { ok: true, message: `${name} is on hold.` } : r;
+    } else {
+      const r = await resumeApplication(payload);
+      result = r.ok ? { ok: true, message: `${name} resumed at ${stage}.` } : r;
+    }
 
     setPending(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    toast.success(COPY[kind].title);
+    toast.success(result.message);
     setKind(null);
     setNote("");
     router.refresh();

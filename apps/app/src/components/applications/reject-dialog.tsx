@@ -3,7 +3,6 @@
 import { UserX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CandidateEmailComposer } from "@/components/applications/candidate-email-composer";
@@ -25,8 +24,10 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { candidateEmailToast } from "@/components/applications/email-toast";
 import { rejectApplication } from "@/lib/actions/applications";
-import { rejectionEmailTemplate } from "@/lib/domain/candidate-email";
+import { COMPANY_NAME } from "@/lib/company";
+import { rejection } from "@/lib/notifications/templates";
 import {
   REJECTION_REASON_LABELS,
   REJECTION_REASONS,
@@ -44,11 +45,13 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
-  const template = rejectionEmailTemplate({
+  const template = rejection({
     candidateName: context.candidateName,
     positionTitle: context.positionTitle,
+    companyName: COMPANY_NAME,
   });
-  const [notifyCandidate, setNotifyCandidate] = useState(false);
+  // Candidates should always hear back; HR opts out deliberately.
+  const [notifyCandidate, setNotifyCandidate] = useState(true);
   const [emailSubject, setEmailSubject] = useState(template.subject);
   const [emailBody, setEmailBody] = useState(template.body);
 
@@ -79,25 +82,11 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
       setError(result.error);
       return;
     }
-    if (result.data.notificationStatus === "failed") {
-      toast.warning(
-        `${context.candidateName} was rejected, but the candidate email failed.`,
-      );
-    } else {
-      const emailResult =
-        result.data.notificationStatus === "sent"
-          ? " and emailed"
-          : result.data.notificationStatus === "demo"
-            ? "; email recorded as demo"
-          : result.data.notificationStatus === "queued"
-            ? "; email queued"
-            : "";
-      toast.success(`${context.candidateName} rejected${emailResult}`);
-    }
+    candidateEmailToast(`${result.data.candidateName} rejected.`, result.data.email);
     setOpen(false);
     setReason("");
     setNote("");
-    setNotifyCandidate(false);
+    setNotifyCandidate(true);
     setEmailSubject(template.subject);
     setEmailBody(template.body);
     router.refresh();
@@ -150,7 +139,7 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
 
             <Field>
               <FieldLabel htmlFor="reject-note">
-                Detail {needsNote ? "(required)" : "(optional)"}
+                Internal note {needsNote ? "(required)" : "(optional)"}
               </FieldLabel>
               <Textarea
                 id="reject-note"
@@ -159,6 +148,7 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
                 onChange={(e) => setNote(e.target.value)}
               />
               <FieldDescription>
+                Never sent to the candidate.{" "}
                 {needsNote
                   ? "“Other” tells reporting nothing on its own — say what happened."
                   : "Kept alongside the reason on the candidate’s record."}
@@ -184,7 +174,9 @@ export function RejectDialog({ context }: { context: AdvanceContext }) {
             <Button variant="destructive" onClick={submit} disabled={pending || !ready}>
               {pending
                 ? "Rejecting…"
-                : `Reject candidate${notifyCandidate ? " and email" : ""}`}
+                : notifyCandidate
+                  ? "Reject & send email"
+                  : "Reject candidate"}
             </Button>
           </DialogFooter>
         </DialogContent>

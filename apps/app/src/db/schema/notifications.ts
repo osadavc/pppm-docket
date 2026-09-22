@@ -35,9 +35,12 @@ export const notifications = pgTable(
       () => candidates.id,
       { onDelete: "set null" },
     ),
-    /** The authenticated person who approved this intended message. */
-    initiatedById: text("initiated_by_id").references(() => user.id, {
-      onDelete: "restrict",
+    /**
+     * The authenticated person who approved this intended message. Null once
+     * that account is deleted — the audit row outlives the actor.
+     */
+    actorId: text("actor_id").references(() => user.id, {
+      onDelete: "set null",
     }),
     subject: text("subject").notNull(),
     /** Rendered snapshot approved for dispatch, retained even on failure. */
@@ -51,6 +54,12 @@ export const notifications = pgTable(
       Record<string, unknown>
     >(),
     error: text("error"),
+    /**
+     * Everything the audit needs that has no column of its own: the stable
+     * idempotency key, the original recipient when DEMO_EMAIL_REDIRECT rewrote
+     * it, the template used, and whether a provider outcome is unknown.
+     */
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     /** Incremented when a sender atomically claims this row for dispatch. */
     attemptCount: integer("attempt_count").default(0).notNull(),
     lastAttemptAt: tstz("last_attempt_at"),
@@ -67,7 +76,7 @@ export const notifications = pgTable(
   (t) => [
     index("notifications_status_idx").on(t.status),
     index("notifications_recipient_user_idx").on(t.recipientUserId),
-    index("notifications_initiated_by_idx").on(t.initiatedById),
+    index("notifications_actor_idx").on(t.actorId),
     index("notifications_application_idx").on(t.applicationId),
     index("notifications_provider_message_idx").on(t.providerMessageId),
     index("notifications_created_idx").on(desc(t.createdAt)),

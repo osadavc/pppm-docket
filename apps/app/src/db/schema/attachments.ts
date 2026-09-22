@@ -32,9 +32,10 @@ export const attachments = pgTable(
     fileName: text("file_name").notNull(),
     mimeType: text("mime_type").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
-    uploadedById: text("uploaded_by_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "restrict" }),
+    /** Null for a CV the candidate uploaded themselves via the careers site. */
+    uploadedById: text("uploaded_by_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

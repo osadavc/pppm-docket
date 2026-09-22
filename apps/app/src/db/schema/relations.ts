@@ -340,8 +340,8 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     references: [user.id],
     relationName: "notificationRecipientUser",
   }),
-  initiatedBy: one(user, {
-    fields: [notifications.initiatedById],
+  actor: one(user, {
+    fields: [notifications.actorId],
     references: [user.id],
     relationName: "notificationInitiatedBy",
   }),

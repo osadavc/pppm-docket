@@ -11,3 +11,4 @@ export * from "./attachments";
 export * from "./activity";
 export * from "./notifications";
 export * from "./relations";
+export * from "./rate-limits";

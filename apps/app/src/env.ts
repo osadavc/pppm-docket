@@ -35,7 +35,9 @@ const schema = z.object({
 
   // Email — optional until Resend is set up; NOTIFICATIONS_ENABLED gates sending.
   RESEND_API_KEY: z.string().optional().default(""),
-  EMAIL_FROM: z.string().default("Docket <onboarding@resend.dev>"),
+  /** Bare address; the display name is built from NEXT_PUBLIC_COMPANY_NAME. */
+  EMAIL_FROM: z.string().default("onboarding@resend.dev"),
+  NEXT_PUBLIC_COMPANY_NAME: z.string().trim().min(1).default("Docket"),
   NOTIFICATIONS_ENABLED: z
     .string()
     .default("false")
@@ -57,6 +59,7 @@ const parsed = schema.safeParse({
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   EMAIL_FROM: process.env.EMAIL_FROM,
+  NEXT_PUBLIC_COMPANY_NAME: process.env.NEXT_PUBLIC_COMPANY_NAME,
   NOTIFICATIONS_ENABLED: process.env.NOTIFICATIONS_ENABLED,
   DEMO_EMAIL_REDIRECT: process.env.DEMO_EMAIL_REDIRECT,
   SEED_PASSWORD: process.env.SEED_PASSWORD,
