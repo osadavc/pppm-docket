@@ -14,7 +14,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * new page cannot accidentally ship unprotected by being left off a list.
  */
 // No /sign-up: staff accounts exist only when a manager creates them.
-const PUBLIC_PATHS = ["/sign-in", "/careers"];
+const PUBLIC_PATHS = ["/sign-in", "/careers", "/private/erd"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(
